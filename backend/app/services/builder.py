@@ -1,4 +1,9 @@
 from app.services.price_feed import resolve_symbol_candidates
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+import logging
+import time
+
+logger = logging.getLogger(__name__)
 
 
 # Seed queries by locale and risk bucket; results are fetched dynamically.
@@ -38,6 +43,11 @@ _BUCKET_GENERIC_TERMS = {
     "hedge": ["gold", "commodity", "inflation"],
     "cash": ["money market", "treasury", "ultra short"],
 }
+
+
+_BUILD_QUERY_LIMIT = 2
+_BUILD_QUERY_TIMEOUT_SEC = 0.8
+_BUILD_BUCKET_TIMEOUT_SEC = 1.8
 
 
 def build_portfolio(amount, risk):
@@ -102,13 +112,66 @@ def _build_query_plan(locale, bucket):
 
 
 def _get_dynamic_bucket_suggestions(locale, bucket, limit=6):
+    started_at = time.perf_counter()
     queries = _build_query_plan(locale, bucket)
 
     collected = []
     seen = set()
 
-    for query in queries:
-        candidates = resolve_symbol_candidates(query, locale, limit=6)
+    for idx, query in enumerate(queries):
+        if (time.perf_counter() - started_at) >= _BUILD_BUCKET_TIMEOUT_SEC:
+            logger.warning(
+                "[builder] bucket timeout bucket=%s locale=%s timeout_sec=%s",
+                bucket,
+                locale,
+                _BUILD_BUCKET_TIMEOUT_SEC,
+            )
+            break
+
+        if idx >= _BUILD_QUERY_LIMIT:
+            break
+
+        # Build flow prioritizes responsiveness; live quote checks happen when user adds instruments.
+        executor = ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(
+            resolve_symbol_candidates,
+            query,
+            locale,
+            6,
+            False,
+        )
+        try:
+            query_started_at = time.perf_counter()
+            candidates = future.result(timeout=_BUILD_QUERY_TIMEOUT_SEC)
+            query_elapsed_ms = round((time.perf_counter() - query_started_at) * 1000)
+            logger.info(
+                "[builder] query bucket=%s locale=%s query=%s candidates=%s elapsed_ms=%s",
+                bucket,
+                locale,
+                query,
+                len(candidates),
+                query_elapsed_ms,
+            )
+        except FuturesTimeoutError:
+            candidates = []
+            logger.warning(
+                "[builder] query timeout bucket=%s locale=%s query=%s timeout_sec=%s",
+                bucket,
+                locale,
+                query,
+                _BUILD_QUERY_TIMEOUT_SEC,
+            )
+        except Exception:
+            candidates = []
+            logger.exception(
+                "[builder] query failed bucket=%s locale=%s query=%s",
+                bucket,
+                locale,
+                query,
+            )
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
         for candidate in candidates:
             symbol = candidate["symbol"]
             if symbol in seen:
@@ -118,6 +181,14 @@ def _get_dynamic_bucket_suggestions(locale, bucket, limit=6):
             if len(collected) >= limit:
                 return collected
 
+    elapsed_ms = round((time.perf_counter() - started_at) * 1000)
+    logger.info(
+        "[builder] bucket done bucket=%s locale=%s suggestions=%s elapsed_ms=%s",
+        bucket,
+        locale,
+        len(collected),
+        elapsed_ms,
+    )
     return collected
 
 
@@ -126,10 +197,11 @@ def get_bucket_suggestions(locale, bucket):
 
 
 def build_bucket_recommendations(amount, risk, locale):
+    started_at = time.perf_counter()
     allocation = build_portfolio(amount, risk)
     amounts = allocate_amount(amount, allocation)
 
-    return [
+    buckets = [
         {
             "bucket": bucket,
             "amount": bucket_amount,
@@ -137,3 +209,13 @@ def build_bucket_recommendations(amount, risk, locale):
         }
         for bucket, bucket_amount in amounts.items()
     ]
+
+    elapsed_ms = round((time.perf_counter() - started_at) * 1000)
+    logger.info(
+        "[builder] recommendations done locale=%s risk=%s buckets=%s elapsed_ms=%s",
+        locale,
+        risk,
+        len(buckets),
+        elapsed_ms,
+    )
+    return buckets

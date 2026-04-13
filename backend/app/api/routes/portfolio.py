@@ -1,5 +1,7 @@
 from typing import List
 from datetime import date
+import logging
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -21,6 +23,7 @@ from app.services.price_feed import fetch_live_price, is_valid_ticker, resolve_s
 from app.services.arbitrage import build_arbitrage_snapshot
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.post("/add", response_model=PortfolioResponse)
 def add_stock(data: PortfolioCreate, db: Session = Depends(get_db)):
@@ -196,11 +199,26 @@ def analyze(
 
 @router.get("/build", response_model=BuildPortfolioResponse)
 def build(amount: float, risk: str, locale: str = "global"):
+    started_at = time.perf_counter()
+    logger.info("[build] start amount=%s risk=%s locale=%s", amount, risk, locale)
+    buckets = build_bucket_recommendations(amount, risk, locale)
+    elapsed_ms = round((time.perf_counter() - started_at) * 1000)
+    total_suggestions = sum(len(item.get("suggestions", [])) for item in buckets)
+    logger.info(
+        "[build] done amount=%s risk=%s locale=%s buckets=%s suggestions=%s elapsed_ms=%s",
+        amount,
+        risk,
+        locale,
+        len(buckets),
+        total_suggestions,
+        elapsed_ms,
+    )
+
     return {
         "risk": risk,
         "locale": locale,
         "amount": amount,
-        "buckets": build_bucket_recommendations(amount, risk, locale)
+        "buckets": buckets,
     }
 
 

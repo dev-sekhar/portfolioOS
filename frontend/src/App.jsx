@@ -138,6 +138,18 @@ export default function App({ googleClientConfigured = false }) {
 
   const normalizedOwnerEmail = (authUser?.email || "").trim().toLowerCase();
   const sessionStorageKey = normalizedOwnerEmail ? `sessionExpiresAt:${normalizedOwnerEmail}` : "";
+  const arbitrageWatchlistStorageKey = normalizedOwnerEmail
+    ? `arbitrageWatchlist:${normalizedOwnerEmail}`
+    : "arbitrageWatchlist:guest";
+  const arbitrageFrequencyStorageKey = normalizedOwnerEmail
+    ? `arbitrageAlertFrequencySec:${normalizedOwnerEmail}`
+    : "arbitrageAlertFrequencySec:guest";
+  const arbitrageSnoozeStorageKey = normalizedOwnerEmail
+    ? `arbitrageAlertSnoozedUntil:${normalizedOwnerEmail}`
+    : "arbitrageAlertSnoozedUntil:guest";
+  const arbitrageMutedDateStorageKey = normalizedOwnerEmail
+    ? `arbitrageAlertMutedDate:${normalizedOwnerEmail}`
+    : "arbitrageAlertMutedDate:guest";
   const sessionMinutesLeft = Math.max(0, Math.floor(sessionRemainingMs / 60000));
   const sessionSecondsLeft = Math.max(0, Math.floor((sessionRemainingMs % 60000) / 1000));
   const sessionCountdownText = `${sessionMinutesLeft}:${String(sessionSecondsLeft).padStart(2, "0")}`;
@@ -335,35 +347,20 @@ export default function App({ googleClientConfigured = false }) {
   }, [normalizedOwnerEmail, sessionStorageKey, sessionTimeoutMs]);
 
   useEffect(() => {
-    if (!normalizedOwnerEmail) {
-      return;
-    }
-    localStorage.setItem(`arbitrageWatchlist:${normalizedOwnerEmail}`, arbitrageWatchlist);
-  }, [arbitrageWatchlist, normalizedOwnerEmail]);
+    localStorage.setItem(arbitrageWatchlistStorageKey, arbitrageWatchlist);
+  }, [arbitrageWatchlistStorageKey, arbitrageWatchlist]);
 
   useEffect(() => {
-    if (!normalizedOwnerEmail) {
-      return;
-    }
-    localStorage.setItem(
-      `arbitrageAlertFrequencySec:${normalizedOwnerEmail}`,
-      String(arbitrageAlertFrequencySec)
-    );
-  }, [arbitrageAlertFrequencySec, normalizedOwnerEmail]);
+    localStorage.setItem(arbitrageFrequencyStorageKey, String(arbitrageAlertFrequencySec));
+  }, [arbitrageFrequencyStorageKey, arbitrageAlertFrequencySec]);
 
   useEffect(() => {
-    if (!normalizedOwnerEmail) {
-      return;
-    }
-    localStorage.setItem(`arbitrageAlertSnoozedUntil:${normalizedOwnerEmail}`, String(alertsSnoozedUntilMs));
-  }, [alertsSnoozedUntilMs, normalizedOwnerEmail]);
+    localStorage.setItem(arbitrageSnoozeStorageKey, String(alertsSnoozedUntilMs));
+  }, [arbitrageSnoozeStorageKey, alertsSnoozedUntilMs]);
 
   useEffect(() => {
-    if (!normalizedOwnerEmail) {
-      return;
-    }
-    localStorage.setItem(`arbitrageAlertMutedDate:${normalizedOwnerEmail}`, alertsMutedDate || "");
-  }, [alertsMutedDate, normalizedOwnerEmail]);
+    localStorage.setItem(arbitrageMutedDateStorageKey, alertsMutedDate || "");
+  }, [arbitrageMutedDateStorageKey, alertsMutedDate]);
 
   useEffect(() => {
     if (!normalizedOwnerEmail) {
@@ -379,18 +376,24 @@ export default function App({ googleClientConfigured = false }) {
       return;
     }
 
-    setArbitrageWatchlist(localStorage.getItem(`arbitrageWatchlist:${normalizedOwnerEmail}`) || "");
-    const savedFrequency = Number(localStorage.getItem(`arbitrageAlertFrequencySec:${normalizedOwnerEmail}`));
+    setArbitrageWatchlist(localStorage.getItem(arbitrageWatchlistStorageKey) || "");
+    const savedFrequency = Number(localStorage.getItem(arbitrageFrequencyStorageKey));
     setArbitrageAlertFrequencySec(
       Number.isFinite(savedFrequency) && savedFrequency >= 5 ? savedFrequency : defaultArbitrageAlertFrequencySec
     );
-    const savedSnooze = Number(localStorage.getItem(`arbitrageAlertSnoozedUntil:${normalizedOwnerEmail}`));
+    const savedSnooze = Number(localStorage.getItem(arbitrageSnoozeStorageKey));
     setAlertsSnoozedUntilMs(Number.isFinite(savedSnooze) ? savedSnooze : 0);
-    const savedMutedDate = localStorage.getItem(`arbitrageAlertMutedDate:${normalizedOwnerEmail}`) || "";
+    const savedMutedDate = localStorage.getItem(arbitrageMutedDateStorageKey) || "";
     setAlertsMutedDate(savedMutedDate);
     setPortfolioCreatedAt(localStorage.getItem(`portfolioCreatedAt:${normalizedOwnerEmail}`) || todayIso);
     loadStocks();
-  }, [normalizedOwnerEmail]);
+  }, [
+    normalizedOwnerEmail,
+    arbitrageWatchlistStorageKey,
+    arbitrageFrequencyStorageKey,
+    arbitrageSnoozeStorageKey,
+    arbitrageMutedDateStorageKey,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -445,19 +448,21 @@ export default function App({ googleClientConfigured = false }) {
         seenArbitrageAlertKeysRef.current.clear();
       }
 
-      setArbitrageTrend((current) => {
-        const next = [
-          ...current,
-          {
-            at: snapshot.updated_at,
-            top_symbol: snapshot.top_spread_symbol,
-            max_spread: snapshot.max_spread,
-            avg_spread: snapshot.avg_spread,
-            active_alert_count: snapshot.active_alert_count,
-          },
-        ];
-        return next.slice(-RUNTIME_SETTINGS.arbitrage.trendWindowPoints);
-      });
+      if (snapshot.market_open !== false) {
+        setArbitrageTrend((current) => {
+          const next = [
+            ...current,
+            {
+              at: snapshot.updated_at,
+              top_symbol: snapshot.top_spread_symbol,
+              max_spread: snapshot.max_spread,
+              avg_spread: snapshot.avg_spread,
+              active_alert_count: snapshot.active_alert_count,
+            },
+          ];
+          return next.slice(-RUNTIME_SETTINGS.arbitrage.trendWindowPoints);
+        });
+      }
     } catch {
       setArbitrageError("Failed to load arbitrage snapshot");
     } finally {
@@ -947,181 +952,6 @@ export default function App({ googleClientConfigured = false }) {
               </Card>
             </div>
 
-            <Card className="card-controls" title="Assumptions & Stress Controls" subtitle="Adjust analysis inputs with accessible controls">
-              <div className="controls-grid">
-                <label className="control-block">
-                  <span>Inflation Assumption: {inflation}%</span>
-                  <small id={ASSUMPTION_HINTS.inflation.ariaId} className="control-hint">
-                    {ASSUMPTION_HINTS.inflation.text}
-                  </small>
-                  <input
-                    type="range"
-                    min="0"
-                    max="15"
-                    step="0.5"
-                    value={inflation}
-                    aria-label="Inflation assumption percentage"
-                    aria-valuemin={0}
-                    aria-valuemax={15}
-                    aria-valuenow={inflation}
-                    aria-describedby={ASSUMPTION_HINTS.inflation.ariaId}
-                    onChange={(e) => setInflation(Number(e.target.value))}
-                  />
-                </label>
-
-                <label className="control-toggle">
-                  <input
-                    type="checkbox"
-                    checked={useSmartCagr}
-                    aria-label="Use sector based CAGR estimation"
-                    onChange={(e) => setUseSmartCagr(e.target.checked)}
-                  />
-                  <span>
-                    Use sector-based CAGR from selected instruments (5Y/10Y)
-                    <small className="control-hint">
-                      {ASSUMPTION_HINTS.smartCagr.text}
-                    </small>
-                  </span>
-                </label>
-
-                <label className="control-block">
-                  <span>Manual CAGR Override: {manualCagr}%</span>
-                  <small id={ASSUMPTION_HINTS.manualCagr.ariaId} className="control-hint">
-                    {ASSUMPTION_HINTS.manualCagr.text}
-                  </small>
-                  <input
-                    type="range"
-                    min="4"
-                    max="25"
-                    step="0.5"
-                    value={manualCagr}
-                    disabled={useSmartCagr}
-                    aria-label="Manual CAGR percentage override"
-                    aria-describedby={ASSUMPTION_HINTS.manualCagr.ariaId}
-                    aria-valuemin={4}
-                    aria-valuemax={25}
-                    aria-valuenow={manualCagr}
-                    onChange={(e) => setManualCagr(Number(e.target.value))}
-                  />
-                </label>
-
-                <label className="control-block">
-                  <span>Mild Stress Drop: {stressLevels.mild}%</span>
-                  <small id={ASSUMPTION_HINTS.mildStress.ariaId} className="control-hint">
-                    {ASSUMPTION_HINTS.mildStress.text}
-                  </small>
-                  <input
-                    type="range"
-                    min="5"
-                    max="40"
-                    step="1"
-                    value={stressLevels.mild}
-                    aria-label="Mild stress drop percentage"
-                    aria-describedby={ASSUMPTION_HINTS.mildStress.ariaId}
-                    aria-valuemin={5}
-                    aria-valuemax={40}
-                    aria-valuenow={stressLevels.mild}
-                    onChange={(e) => updateStressLevel("mild", e.target.value)}
-                  />
-                </label>
-
-                <label className="control-block">
-                  <span>Recession Drop: {stressLevels.recession}%</span>
-                  <small id={ASSUMPTION_HINTS.recessionStress.ariaId} className="control-hint">
-                    {ASSUMPTION_HINTS.recessionStress.text}
-                  </small>
-                  <input
-                    type="range"
-                    min="10"
-                    max="60"
-                    step="1"
-                    value={stressLevels.recession}
-                    aria-label="Recession stress drop percentage"
-                    aria-describedby={ASSUMPTION_HINTS.recessionStress.ariaId}
-                    aria-valuemin={10}
-                    aria-valuemax={60}
-                    aria-valuenow={stressLevels.recession}
-                    onChange={(e) => updateStressLevel("recession", e.target.value)}
-                  />
-                </label>
-
-                <label className="control-block">
-                  <span>Crash Drop: {stressLevels.crash}%</span>
-                  <small id={ASSUMPTION_HINTS.crashStress.ariaId} className="control-hint">
-                    {ASSUMPTION_HINTS.crashStress.text}
-                  </small>
-                  <input
-                    type="range"
-                    min="15"
-                    max="80"
-                    step="1"
-                    value={stressLevels.crash}
-                    aria-label="Crash stress drop percentage"
-                    aria-describedby={ASSUMPTION_HINTS.crashStress.ariaId}
-                    aria-valuemin={15}
-                    aria-valuemax={80}
-                    aria-valuenow={stressLevels.crash}
-                    onChange={(e) => updateStressLevel("crash", e.target.value)}
-                  />
-                </label>
-              </div>
-            </Card>
-
-            {result && (
-              <div className="results-grid">
-                <Card className="card-rebalance" title="Rebalance" subtitle="What rebalancing means">
-                  <p className="card-note">
-                    Rebalancing is the action required to bring your current allocation back to the target risk mix.
-                    Positive values mean add more in that bucket; negative values mean trim exposure.
-                  </p>
-                  <div className="metric-stack">
-                    {Object.entries(result.rebalance).map(([k, v]) => (
-                      <div key={k}>
-                        {k}: ₹{v.toFixed(0)}
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-
-                <Card className="card-projection" title="Projection" subtitle="How projection is calculated">
-                  <p className="card-note">
-                    Projections use compound annual growth with a nominal CAGR assumption of {assumedCagr}%.
-                    Formula: Future Value = Present Value x (1 + r)^n.
-                    CAGR source: {result.assumptions.cagr_source === "sector_estimated" ? "sector-weighted estimate" : "manual override"}.
-                  </p>
-                  <div className="metric-stack">
-                    <div>Nominal 5Y: ₹{result.projection_5y.toFixed(0)}</div>
-                    <div>Nominal 10Y: ₹{result.projection_10y.toFixed(0)}</div>
-                    <div>Inflation-adjusted 5Y ({assumedInflation}%): ₹{realValue5Y.toFixed(0)}</div>
-                    <div>Inflation-adjusted 10Y ({assumedInflation}%): ₹{realValue10Y.toFixed(0)}</div>
-                    {result.assumptions.cagr_source === "sector_estimated" && (
-                      <div>
-                        Sector mix used: {Object.entries(result.assumptions.sector_mix)
-                          .map(([sector, weight]) => `${sector} ${(weight * 100).toFixed(0)}%`)
-                          .join(", ")}
-                      </div>
-                    )}
-                  </div>
-                </Card>
-
-                <Card className="card-risk" title="Risk" subtitle="Stress and macro assumptions">
-                  <p className="card-note">
-                    Risk view applies stress shocks (-10%, -20%, -30%) to estimate downside in mild, recession,
-                    and crash markets. Geopolitical and inflation pressures are modeled as scenario assumptions,
-                    not as live macro feeds.
-                  </p>
-                  <div className="metric-stack">
-                    <div>Mild (-{result.stress.levels.mild_drop}%): ₹{result.stress.mild.toFixed(0)}</div>
-                    <div>Recession (-{result.stress.levels.recession_drop}%): ₹{result.stress.recession.toFixed(0)}</div>
-                    <div>Crash (-{result.stress.levels.crash_drop}%): ₹{result.stress.crash.toFixed(0)}</div>
-                    <div className="card-note" style={{ marginTop: "10px" }}>Event-based downside scenarios:</div>
-                    <div>Pandemic 2020: ₹{result.event_risk.pandemic_2020.toFixed(0)}</div>
-                    <div>Bank Meltdown 2007: ₹{result.event_risk.bank_meltdown_2007.toFixed(0)}</div>
-                    <div>War 2026: ₹{result.event_risk.war_2026.toFixed(0)}</div>
-                  </div>
-                </Card>
-              </div>
-            )}
           </section>
         )}
 
@@ -1394,6 +1224,182 @@ export default function App({ googleClientConfigured = false }) {
               onPortfolioChanged={loadStocks}
               onRiskChange={setTargetRisk}
             />
+
+            <Card className="card-controls" title="Assumptions & Stress Controls" subtitle="Adjust analysis inputs with accessible controls">
+              <div className="controls-grid">
+                <label className="control-block">
+                  <span>Inflation Assumption: {inflation}%</span>
+                  <small id={ASSUMPTION_HINTS.inflation.ariaId} className="control-hint">
+                    {ASSUMPTION_HINTS.inflation.text}
+                  </small>
+                  <input
+                    type="range"
+                    min="0"
+                    max="15"
+                    step="0.5"
+                    value={inflation}
+                    aria-label="Inflation assumption percentage"
+                    aria-valuemin={0}
+                    aria-valuemax={15}
+                    aria-valuenow={inflation}
+                    aria-describedby={ASSUMPTION_HINTS.inflation.ariaId}
+                    onChange={(e) => setInflation(Number(e.target.value))}
+                  />
+                </label>
+
+                <label className="control-toggle">
+                  <input
+                    type="checkbox"
+                    checked={useSmartCagr}
+                    aria-label="Use sector based CAGR estimation"
+                    onChange={(e) => setUseSmartCagr(e.target.checked)}
+                  />
+                  <span>
+                    Use sector-based CAGR from selected instruments (5Y/10Y)
+                    <small className="control-hint">
+                      {ASSUMPTION_HINTS.smartCagr.text}
+                    </small>
+                  </span>
+                </label>
+
+                <label className="control-block">
+                  <span>Manual CAGR Override: {manualCagr}%</span>
+                  <small id={ASSUMPTION_HINTS.manualCagr.ariaId} className="control-hint">
+                    {ASSUMPTION_HINTS.manualCagr.text}
+                  </small>
+                  <input
+                    type="range"
+                    min="4"
+                    max="25"
+                    step="0.5"
+                    value={manualCagr}
+                    disabled={useSmartCagr}
+                    aria-label="Manual CAGR percentage override"
+                    aria-describedby={ASSUMPTION_HINTS.manualCagr.ariaId}
+                    aria-valuemin={4}
+                    aria-valuemax={25}
+                    aria-valuenow={manualCagr}
+                    onChange={(e) => setManualCagr(Number(e.target.value))}
+                  />
+                </label>
+
+                <label className="control-block">
+                  <span>Mild Stress Drop: {stressLevels.mild}%</span>
+                  <small id={ASSUMPTION_HINTS.mildStress.ariaId} className="control-hint">
+                    {ASSUMPTION_HINTS.mildStress.text}
+                  </small>
+                  <input
+                    type="range"
+                    min="5"
+                    max="40"
+                    step="1"
+                    value={stressLevels.mild}
+                    aria-label="Mild stress drop percentage"
+                    aria-describedby={ASSUMPTION_HINTS.mildStress.ariaId}
+                    aria-valuemin={5}
+                    aria-valuemax={40}
+                    aria-valuenow={stressLevels.mild}
+                    onChange={(e) => updateStressLevel("mild", e.target.value)}
+                  />
+                </label>
+
+                <label className="control-block">
+                  <span>Recession Drop: {stressLevels.recession}%</span>
+                  <small id={ASSUMPTION_HINTS.recessionStress.ariaId} className="control-hint">
+                    {ASSUMPTION_HINTS.recessionStress.text}
+                  </small>
+                  <input
+                    type="range"
+                    min="10"
+                    max="60"
+                    step="1"
+                    value={stressLevels.recession}
+                    aria-label="Recession stress drop percentage"
+                    aria-describedby={ASSUMPTION_HINTS.recessionStress.ariaId}
+                    aria-valuemin={10}
+                    aria-valuemax={60}
+                    aria-valuenow={stressLevels.recession}
+                    onChange={(e) => updateStressLevel("recession", e.target.value)}
+                  />
+                </label>
+
+                <label className="control-block">
+                  <span>Crash Drop: {stressLevels.crash}%</span>
+                  <small id={ASSUMPTION_HINTS.crashStress.ariaId} className="control-hint">
+                    {ASSUMPTION_HINTS.crashStress.text}
+                  </small>
+                  <input
+                    type="range"
+                    min="15"
+                    max="80"
+                    step="1"
+                    value={stressLevels.crash}
+                    aria-label="Crash stress drop percentage"
+                    aria-describedby={ASSUMPTION_HINTS.crashStress.ariaId}
+                    aria-valuemin={15}
+                    aria-valuemax={80}
+                    aria-valuenow={stressLevels.crash}
+                    onChange={(e) => updateStressLevel("crash", e.target.value)}
+                  />
+                </label>
+              </div>
+            </Card>
+
+            {result && (
+              <div className="results-grid">
+                <Card className="card-rebalance" title="Rebalance" subtitle="What rebalancing means">
+                  <p className="card-note">
+                    Rebalancing is the action required to bring your current allocation back to the target risk mix.
+                    Positive values mean add more in that bucket; negative values mean trim exposure.
+                  </p>
+                  <div className="metric-stack">
+                    {Object.entries(result.rebalance).map(([k, v]) => (
+                      <div key={k}>
+                        {k}: ₹{v.toFixed(0)}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card className="card-projection" title="Projection" subtitle="How projection is calculated">
+                  <p className="card-note">
+                    Projections use compound annual growth with a nominal CAGR assumption of {assumedCagr}%.
+                    Formula: Future Value = Present Value x (1 + r)^n.
+                    CAGR source: {result.assumptions.cagr_source === "sector_estimated" ? "sector-weighted estimate" : "manual override"}.
+                  </p>
+                  <div className="metric-stack">
+                    <div>Nominal 5Y: ₹{result.projection_5y.toFixed(0)}</div>
+                    <div>Nominal 10Y: ₹{result.projection_10y.toFixed(0)}</div>
+                    <div>Inflation-adjusted 5Y ({assumedInflation}%): ₹{realValue5Y.toFixed(0)}</div>
+                    <div>Inflation-adjusted 10Y ({assumedInflation}%): ₹{realValue10Y.toFixed(0)}</div>
+                    {result.assumptions.cagr_source === "sector_estimated" && (
+                      <div>
+                        Sector mix used: {Object.entries(result.assumptions.sector_mix)
+                          .map(([sector, weight]) => `${sector} ${(weight * 100).toFixed(0)}%`)
+                          .join(", ")}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="card-risk" title="Risk" subtitle="Stress and macro assumptions">
+                  <p className="card-note">
+                    Risk view applies stress shocks (-10%, -20%, -30%) to estimate downside in mild, recession,
+                    and crash markets. Geopolitical and inflation pressures are modeled as scenario assumptions,
+                    not as live macro feeds.
+                  </p>
+                  <div className="metric-stack">
+                    <div>Mild (-{result.stress.levels.mild_drop}%): ₹{result.stress.mild.toFixed(0)}</div>
+                    <div>Recession (-{result.stress.levels.recession_drop}%): ₹{result.stress.recession.toFixed(0)}</div>
+                    <div>Crash (-{result.stress.levels.crash_drop}%): ₹{result.stress.crash.toFixed(0)}</div>
+                    <div className="card-note" style={{ marginTop: "10px" }}>Event-based downside scenarios:</div>
+                    <div>Pandemic 2020: ₹{result.event_risk.pandemic_2020.toFixed(0)}</div>
+                    <div>Bank Meltdown 2007: ₹{result.event_risk.bank_meltdown_2007.toFixed(0)}</div>
+                    <div>War 2026: ₹{result.event_risk.war_2026.toFixed(0)}</div>
+                  </div>
+                </Card>
+              </div>
+            )}
           </section>
         )}
 
@@ -1465,6 +1471,11 @@ export default function App({ googleClientConfigured = false }) {
                   </span>
                   <button type="button" onClick={resumeAlerts}>Resume Alerts</button>
                 </div>
+              )}
+              {arbitrage?.market_open === false && (
+                <p className="card-note">
+                  Market is currently closed. Arbitrage opportunities and alerts are paused until market open.
+                </p>
               )}
               {arbitrageError && <p className="arb-error">{arbitrageError}</p>}
             </Card>

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from app.services.price_feed import fetch_live_price, get_company_name
 
@@ -16,8 +17,38 @@ def _normalize_symbols(symbols: list[str] | None) -> list[str]:
     return normalized
 
 
+def _is_india_market_open(now_utc: datetime | None = None) -> bool:
+    now_utc = now_utc or datetime.now(timezone.utc)
+    ist = now_utc.astimezone(ZoneInfo("Asia/Kolkata"))
+
+    # NSE/BSE regular cash session: Mon-Fri, 09:15 to 15:30 IST
+    if ist.weekday() >= 5:
+        return False
+
+    minutes = ist.hour * 60 + ist.minute
+    return (9 * 60 + 15) <= minutes <= (15 * 60 + 30)
+
+
 def build_arbitrage_snapshot(symbols: list[str] | None = None, threshold: float = 1.0) -> dict:
     watchlist = _normalize_symbols(symbols)
+    now_utc = datetime.now(timezone.utc)
+    market_open = _is_india_market_open(now_utc)
+
+    if not market_open:
+        return {
+            "updated_at": now_utc.isoformat(),
+            "threshold": threshold,
+            "market_open": False,
+            "market_status": "closed",
+            "tracked_count": len(watchlist),
+            "active_alert_count": 0,
+            "max_spread": 0.0,
+            "avg_spread": 0.0,
+            "top_spread_symbol": None,
+            "rows": [],
+            "alerts": [],
+        }
+
     rows = []
 
     for base_symbol in watchlist:
@@ -63,8 +94,10 @@ def build_arbitrage_snapshot(symbols: list[str] | None = None, threshold: float 
     top_row = rows[0] if rows else None
 
     return {
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": now_utc.isoformat(),
         "threshold": threshold,
+        "market_open": True,
+        "market_status": "open",
         "tracked_count": len(rows),
         "active_alert_count": len(active_alerts),
         "max_spread": round(max_spread, 4),

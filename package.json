@@ -5,7 +5,7 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "backend": "cd backend && uvicorn app.main:app --reload",
+    "backend": "cd backend && python run.py",
     "frontend": "cd frontend && yarn dev",
     "dev": "concurrently -k -n BACKEND,FRONTEND -c green,blue \"yarn backend\" \"yarn frontend\""
   },

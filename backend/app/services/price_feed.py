@@ -48,7 +48,12 @@ def _resolve_yf_symbol(symbol: str, market: str) -> str:
     return sym + suffix
 
 
-def resolve_symbol_candidates(query: str, market: str = "global", limit: int = 8) -> list[dict]:
+def resolve_symbol_candidates(
+    query: str,
+    market: str = "global",
+    limit: int = 8,
+    require_live_price: bool = True,
+) -> list[dict]:
     cleaned_query = (query or "").strip()
     if len(cleaned_query) < 2:
         return []
@@ -79,7 +84,7 @@ def resolve_symbol_candidates(query: str, market: str = "global", limit: int = 8
         if not _market_match(symbol, exchange, market):
             continue
 
-        if not _ticker_has_usable_price(symbol):
+        if require_live_price and not _ticker_has_usable_price(symbol):
             continue
 
         name = str(item.get("longname") or item.get("shortname") or symbol)

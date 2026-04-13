@@ -1,6 +1,10 @@
 import axios from "axios";
 
-const API = "http://127.0.0.1:8000";
+const backendPort = import.meta.env.VITE_BACKEND_PORT || "8000";
+const API =
+    import.meta.env.VITE_API_BASE_EXTERNAL ||
+    import.meta.env.VITE_API_BASE_INTERNAL ||
+    `http://127.0.0.1:${backendPort}`;
 
 export const addStock = (data) =>
     axios.post(`${API}/add`, data);
@@ -21,7 +25,10 @@ export const analyzePortfolio = (params, ownerEmail) =>
     axios.get(`${API}/analyze`, { params: { ...params, owner_email: ownerEmail } });
 
 export const buildPortfolio = (amount, risk, locale) =>
-    axios.get(`${API}/build`, { params: { amount, risk, locale } });
+    axios.get(`${API}/build`, {
+        params: { amount, risk, locale },
+        timeout: 15000,
+    });
 
 export const fetchStockPrice = (symbol, market) =>
     axios.get(`${API}/price/${encodeURIComponent(symbol)}`, { params: { market } });
