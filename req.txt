@@ -1,0 +1,385 @@
+# 📊 Portfolio OS — Requirement Specification Document
+
+---
+
+## 1. 📌 Overview
+
+**Portfolio OS** is a local-first portfolio intelligence system that enables users to:
+
+* Build, analyze, and manage investment portfolios
+* Simulate long-term performance
+* Assess risk (market, geopolitical, inflation)
+* Visualize allocation and insights
+* Store portfolios securely on their local machine
+
+The system is designed to be:
+
+* 🔐 Privacy-first (no cloud dependency)
+* 🧠 Insight-driven (not just tracking)
+* ⚡ Fast and extensible
+
+---
+
+## 2. 🎯 Objectives
+
+* Provide actionable portfolio insights
+* Enable both manual and automated portfolio creation
+* Simulate long-term outcomes (5Y, 10Y)
+* Incorporate real-world risks (inflation, geopolitical events)
+* Deliver a clean fintech-grade UI experience
+
+---
+
+## 3. 👤 User Personas
+
+### 3.1 Beginner Investor
+
+* Wants guided portfolio creation
+* Needs simple insights
+
+### 3.2 Intermediate Investor
+
+* Builds custom portfolios
+* Analyzes allocation and rebalancing
+
+### 3.3 Advanced User
+
+* Evaluates risk scenarios
+* Simulates long-term performance
+
+---
+
+## 4. 🧩 Core Features
+
+---
+
+### 4.1 Portfolio Input (Manual Mode)
+
+**User can:**
+
+* Add stocks/assets manually
+* Assign:
+
+  * Name
+  * Value
+  * Category (core, growth, defensive, global, hedge, cash)
+
+---
+
+### 4.2 Portfolio Analysis Engine
+
+**System computes:**
+
+* Total portfolio value
+* Allocation (%) across categories
+* Rebalancing suggestions
+* Health score (0–10)
+
+---
+
+### 4.3 Portfolio Wizard (Auto Build Mode)
+
+**Inputs:**
+
+* Investment amount
+* Risk level (low / medium / high)
+
+**Output:**
+
+* Suggested allocation
+* Category-wise investment distribution
+
+---
+
+### 4.4 Projection Engine
+
+**Calculates:**
+
+* 5-year projection
+* 10-year projection
+
+**Assumption:**
+
+* CAGR-based growth (default ~12%)
+
+---
+
+### 4.5 Risk Engine
+
+Simulates portfolio under stress scenarios:
+
+| Scenario  | Impact |
+| --------- | ------ |
+| Mild      | -10%   |
+| Recession | -20%   |
+| Crash     | -30%   |
+
+---
+
+### 4.6 Portfolio Health Score
+
+Score based on diversification:
+
+* Global exposure
+* Hedge allocation
+* Defensive assets
+* Core stability
+* Cash buffer
+
+---
+
+### 4.7 Data Persistence (Local)
+
+* SQLite database
+* Stored on user machine
+* No cloud dependency
+
+---
+
+### 4.8 Save Portfolio Feature
+
+Users can:
+
+* Save portfolio names
+* View saved portfolios
+
+---
+
+## 5. 📊 Visualization Features
+
+---
+
+### 5.1 Allocation Pie Chart
+
+* Shows % distribution across categories
+
+---
+
+### 5.2 Allocation Bar Chart
+
+* Comparative visualization
+
+---
+
+### 5.3 Dashboard Sections
+
+* Overview (Total + Health Score)
+* Allocation
+* Rebalance
+* Projection
+* Risk
+
+---
+
+## 6. 🏗️ System Architecture
+
+---
+
+### 6.1 Monorepo Structure
+
+```
+portfolio-os/
+├── backend/ (FastAPI)
+├── frontend/ (React + Vite)
+└── SQLite DB
+```
+
+---
+
+### 6.2 Backend
+
+* Language: Python
+* Framework: FastAPI
+* ORM: SQLAlchemy
+* DB: SQLite
+
+**Modules:**
+
+* Models
+* Schemas
+* Services (analysis, projections, risk, builder)
+* API routes
+
+---
+
+### 6.3 Frontend
+
+* Framework: React (Vite)
+* State: useState
+* API: Axios
+* Charts: Recharts
+
+---
+
+## 7. 🔐 Security & Data Safety
+
+---
+
+### 7.1 Local-First Design
+
+* No external API dependency
+* No cloud storage
+
+---
+
+### 7.2 Input Validation
+
+* Pydantic schemas
+* Prevents invalid/malicious data
+
+---
+
+### 7.3 Environment Config
+
+* `.env` for sensitive configs
+
+---
+
+### 7.4 CORS Protection
+
+* Restricted to local frontend
+
+---
+
+### 7.5 Database Safety
+
+* Local SQLite
+* Optional file permission restriction
+
+---
+
+## 8. ⚙️ Functional Requirements
+
+---
+
+### FR1: Add Investment
+
+* User can add stock with value and category
+
+---
+
+### FR2: Analyze Portfolio
+
+* System calculates allocation, rebalance, projections
+
+---
+
+### FR3: Build Portfolio
+
+* System generates allocation based on risk
+
+---
+
+### FR4: Save Portfolio
+
+* User can store portfolio names
+
+---
+
+### FR5: View Portfolio Insights
+
+* Dashboard displays charts and metrics
+
+---
+
+## 9. 🚀 Non-Functional Requirements
+
+---
+
+### Performance
+
+* Fast local computation
+
+### Security
+
+* No data leakage
+* Local storage only
+
+### Scalability
+
+* Modular backend services
+
+### Usability
+
+* Clean dashboard UI
+* Minimal learning curve
+
+---
+
+## 10. 📈 Future Enhancements
+
+---
+
+### 10.1 AI Insights
+
+* Portfolio recommendations
+* Risk alerts
+
+---
+
+### 10.2 Live Market Data
+
+* Real-time stock prices
+
+---
+
+### 10.3 Portfolio History
+
+* Track changes over time
+
+---
+
+### 10.4 CSV Import
+
+* Import broker data
+
+---
+
+### 10.5 Multi-Portfolio Management
+
+* Separate portfolios per goal
+
+---
+
+### 10.6 Desktop App
+
+* Electron-based local app
+
+---
+
+## 11. 💡 Key Value Proposition
+
+Portfolio OS is not just a tracker:
+
+> It is a **decision-making engine for investments**
+
+---
+
+## 12. ✅ Current System Status
+
+| Feature        | Status        |
+| -------------- | ------------- |
+| Backend API    | ✅ Complete    |
+| Frontend UI    | ✅ Working     |
+| Dashboard      | ✅ Implemented |
+| Charts         | ✅ Implemented |
+| Wizard         | ✅ Implemented |
+| Save Portfolio | ✅ Basic       |
+| Security       | ✅ Local-first |
+
+---
+
+## 13. 🎯 Conclusion
+
+Portfolio OS provides a strong foundation for:
+
+* Personal finance intelligence
+* Investment decision support
+* Scalable fintech product development
+
+---
+
+**Next Phase:**
+AI + live data + advanced analytics 🚀
+
+---

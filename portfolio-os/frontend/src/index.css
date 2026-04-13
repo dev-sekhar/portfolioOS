@@ -1,0 +1,82 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap");
+
+:root {
+  --bg-root: #0b0b0e;
+  --bg-surface: #121217;
+  --bg-surface-hover: #1a1a20;
+  --bg-surface-elevated: #1f1f26;
+  --text-primary: #f8f8f8;
+  --text-secondary: #c6c7d2;
+  --text-tertiary: #a9abb8;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --accent-base: #3b82f6;
+  --accent-secondary: #a855f7;
+  --accent-tertiary: #ec4899;
+  --gradient-neon: linear-gradient(135deg, var(--accent-base), var(--accent-secondary), var(--accent-tertiary));
+  --gradient-glow: linear-gradient(135deg, rgba(59, 130, 246, 0.45), rgba(168, 85, 247, 0.45));
+  --shadow-glow: 0 0 24px rgba(168, 85, 247, 0.28);
+  --shadow-card: 0 12px 28px rgba(0, 0, 0, 0.42);
+  --glass-bg: rgba(18, 18, 23, 0.7);
+  --font-primary: "Inter", "Segoe UI", sans-serif;
+  --font-display: "Outfit", "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-primary);
+  color: var(--text-primary);
+  background: var(--bg-root);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+html {
+  background: var(--bg-root);
+  overflow-x: hidden;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  text-align: left;
+  min-height: 100svh;
+  box-sizing: border-box;
+  overflow-x: clip;
+}
+
+h1,
+h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+h1 {
+  font-size: 56px;
+  letter-spacing: -1.68px;
+  margin: 32px 0;
+
+  @media (max-width: 1024px) {
+    font-size: 36px;
+    margin: 20px 0;
+  }
+}
+
+h2 {
+  font-size: 24px;
+  line-height: 118%;
+  letter-spacing: -0.24px;
+  margin: 0 0 8px;
+
+  @media (max-width: 1024px) {
+    font-size: 20px;
+  }
+}
+
+p {
+  margin: 0;
+  color: var(--text-secondary);
+}
