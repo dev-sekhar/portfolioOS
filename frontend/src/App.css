@@ -354,6 +354,14 @@
     padding-left: 2px;
 }
 
+.price-input--readonly {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: var(--border-subtle) !important;
+    color: var(--text-tertiary) !important;
+    cursor: not-allowed;
+    user-select: none;
+}
+
 .portfolio-table {
     width: 100%;
     border-collapse: collapse;

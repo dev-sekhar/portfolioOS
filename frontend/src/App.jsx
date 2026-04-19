@@ -24,6 +24,15 @@ const RISK_TARGETS = {
   high: { growth: 0.5, core: 0.2, global: 0.2, hedge: 0.05, cash: 0.05 },
 };
 
+const BUCKET_CANDIDATE_HINTS = {
+  core: ["broad index ETF", "large-cap index"],
+  growth: ["technology ETF", "momentum growth ETF"],
+  defensive: ["consumer staples ETF", "healthcare ETF", "dividend ETF"],
+  global: ["developed markets ETF", "world index ETF"],
+  hedge: ["gold ETF", "commodity ETF"],
+  cash: ["treasury bill ETF", "ultra-short debt"],
+};
+
 const getLocalDateKey = () => {
   const now = new Date();
   const y = now.getFullYear();
@@ -207,6 +216,92 @@ export default function App({ googleClientConfigured = false }) {
     const base = `${riskKey} targets core ${(target.core || 0) * 100}%, growth ${(target.growth || 0) * 100}%, global ${(target.global || 0) * 100}%, hedge ${(target.hedge || 0) * 100}%, cash ${(target.cash || 0) * 100}%.`;
     return topGaps ? `${base} Biggest gaps: ${topGaps}.` : `${base} Current mix is close to target.`;
   }, [result, targetRisk]);
+
+  const rebalanceExplanation = useMemo(() => {
+    if (!result?.rebalance) {
+      return {
+        summary: "Rebalance notes appear after analysis is available.",
+        candidateLine: "",
+        defensiveLine: "",
+      };
+    }
+
+    const entries = Object.entries(result.rebalance).map(([bucket, value]) => ({
+      bucket,
+      value: Number(value || 0),
+    }));
+
+    const adds = entries.filter((item) => item.value > 0).sort((a, b) => b.value - a.value);
+    const trims = entries.filter((item) => item.value < 0).sort((a, b) => a.value - b.value);
+
+    const topAdd = adds[0];
+    const topTrim = trims[0];
+    const summary = topAdd
+      ? `Largest add is ${topAdd.bucket} (Rs${topAdd.value.toFixed(0)}), driven by target-risk gap versus current allocation.${
+          topTrim ? ` Largest trim is ${topTrim.bucket} (Rs${Math.abs(topTrim.value).toFixed(0)}).` : ""
+        }`
+      : "Current allocation is already close to target; no large rebalance adds are required.";
+
+    const candidateLine = adds.length > 0
+      ? `Balanced candidate ideas: ${adds
+          .slice(0, 2)
+          .map((item) => `${item.bucket} -> ${(BUCKET_CANDIDATE_HINTS[item.bucket] || []).slice(0, 2).join(" / ")}`)
+          .join("; ")}.`
+      : "";
+
+    const riskKey = (result?.risk || targetRisk || "medium").toLowerCase();
+    const target = RISK_TARGETS[riskKey] || RISK_TARGETS.medium;
+    const currentDefensive = (result?.allocation?.defensive || 0) * 100;
+    const targetDefensive = (target?.defensive || 0) * 100;
+    const defensiveGap = Number(result?.rebalance?.defensive || 0);
+    const defensiveLine = defensiveGap > 0
+      ? `Defensive is underweight (${currentDefensive.toFixed(1)}% vs target ${targetDefensive.toFixed(1)}%), so model asks to add Rs${defensiveGap.toFixed(0)}.`
+      : "Defensive is not prioritized because current weight is already at or above target for selected risk.";
+
+    return { summary, candidateLine, defensiveLine };
+  }, [result, targetRisk]);
+
+  const projectionExplanation = useMemo(() => {
+    if (!result?.assumptions) {
+      return "Projection derivation appears after analysis is available.";
+    }
+
+    if (result.assumptions.cagr_source === "sector_estimated") {
+      const mixLine = Object.entries(result.assumptions.sector_mix || {})
+        .sort((a, b) => b[1] - a[1])
+        .map(([sector, weight]) => `${sector} ${(weight * 100).toFixed(0)}%`)
+        .join(", ");
+      return `CAGR is derived from weighted sector returns (5Y ${result.assumptions.cagr_5y}%, 10Y ${result.assumptions.cagr_10y}%) using your portfolio mix: ${mixLine}.`;
+    }
+
+    return `CAGR is user-provided override at ${result.assumptions.cagr_10y}%, so projections are directly based on manual input.`;
+  }, [result]);
+
+  const riskScenarioExplanation = useMemo(() => {
+    if (!result?.event_risk || !result?.total) {
+      return "Event-risk ordering appears after analysis is available.";
+    }
+
+    const scenarios = [
+      { label: "Pandemic 2020", key: "pandemic_2020" },
+      { label: "Bank Meltdown 2007", key: "bank_meltdown_2007" },
+      { label: "War 2026", key: "war_2026" },
+    ].map((item) => {
+      const value = Number(result.event_risk[item.key] || 0);
+      const drawdownPct = result.total > 0 ? ((result.total - value) / result.total) * 100 : 0;
+      return {
+        ...item,
+        value,
+        drawdownPct,
+      };
+    });
+
+    const ordered = [...scenarios].sort((a, b) => a.value - b.value);
+    const worst = ordered[0];
+    const best = ordered[ordered.length - 1];
+
+    return `Worst retained value is ${worst.label} (about -${worst.drawdownPct.toFixed(0)}%), then ${ordered[1].label}; best retained value is ${best.label} (about -${best.drawdownPct.toFixed(0)}%).`;
+  }, [result]);
 
   const playAlertTone = () => {
     if (!audioUnlockedRef.current) {
@@ -572,8 +667,10 @@ export default function App({ googleClientConfigured = false }) {
     setPriceStatus("idle");
     queueSymbolSearch(symbol, form.market);
 
-    if (symbol.includes(".")) {
+    if (symbol.length >= 2) {
       queuePriceFetch(symbol, form.market);
+    } else {
+      setForm((prev) => ({ ...prev, current_market_price: "", average_cost_price: "" }));
     }
   };
 
@@ -618,8 +715,11 @@ export default function App({ googleClientConfigured = false }) {
     try {
       setAddError("");
       for (const symbol of symbolsToAdd) {
-        let marketPrice = Number(form.current_market_price);
-        if (!Number.isFinite(marketPrice) || marketPrice <= 0) {
+        let marketPrice = 0;
+        // If single add, we can use the form's price if available
+        if (symbolsToAdd.length === 1 && Number(form.current_market_price) > 0) {
+          marketPrice = Number(form.current_market_price);
+        } else {
           try {
             const priceRes = await fetchStockPrice(symbol, form.market);
             const fetched = Number(priceRes?.data?.price);
@@ -1031,7 +1131,9 @@ export default function App({ googleClientConfigured = false }) {
                     min="0"
                     step="0.01"
                     value={form.current_market_price}
-                    onChange={(e) => setForm({ ...form, current_market_price: e.target.value })}
+                    readOnly
+                    className="price-input--readonly"
+                    onChange={() => {}}
                   />
                   {priceStatus === "fetched" && <span className="auto-filled-hint">auto-filled</span>}
                 </div>
@@ -1352,6 +1454,9 @@ export default function App({ googleClientConfigured = false }) {
                     Rebalancing is the action required to bring your current allocation back to the target risk mix.
                     Positive values mean add more in that bucket; negative values mean trim exposure.
                   </p>
+                  <p className="card-note">{rebalanceExplanation.summary}</p>
+                  {rebalanceExplanation.candidateLine && <p className="card-note">{rebalanceExplanation.candidateLine}</p>}
+                  <p className="card-note">{rebalanceExplanation.defensiveLine}</p>
                   <div className="metric-stack">
                     {Object.entries(result.rebalance).map(([k, v]) => (
                       <div key={k}>
@@ -1367,6 +1472,7 @@ export default function App({ googleClientConfigured = false }) {
                     Formula: Future Value = Present Value x (1 + r)^n.
                     CAGR source: {result.assumptions.cagr_source === "sector_estimated" ? "sector-weighted estimate" : "manual override"}.
                   </p>
+                  <p className="card-note">{projectionExplanation}</p>
                   <div className="metric-stack">
                     <div>Nominal 5Y: ₹{result.projection_5y.toFixed(0)}</div>
                     <div>Nominal 10Y: ₹{result.projection_10y.toFixed(0)}</div>
@@ -1388,6 +1494,7 @@ export default function App({ googleClientConfigured = false }) {
                     and crash markets. Geopolitical and inflation pressures are modeled as scenario assumptions,
                     not as live macro feeds.
                   </p>
+                  <p className="card-note">{riskScenarioExplanation}</p>
                   <div className="metric-stack">
                     <div>Mild (-{result.stress.levels.mild_drop}%): ₹{result.stress.mild.toFixed(0)}</div>
                     <div>Recession (-{result.stress.levels.recession_drop}%): ₹{result.stress.recession.toFixed(0)}</div>
