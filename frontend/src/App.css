@@ -1052,3 +1052,346 @@
     color: var(--text-primary);
     padding: 10px 12px;
 }
+
+/* Tabs */
+.tab-container {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 2px;
+}
+
+.tab-button {
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    padding: 10px 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 12px 12px 0 0;
+    position: relative;
+    font-size: 0.95rem;
+}
+
+.tab-button:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-button.is-active {
+    color: #fff;
+    background: rgba(168, 85, 247, 0.1);
+}
+
+.tab-button.is-active::after {
+    content: "";
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--gradient-neon);
+    border-radius: 99px;
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+}
+
+/* Rebalance */
+.portfolio-header-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 16px;
+}
+
+.rebalance-btn {
+    background: var(--gradient-neon);
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-glow);
+}
+
+.rebalance-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    filter: brightness(1.1);
+}
+
+.rebalance-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-surface-elevated);
+    box-shadow: none;
+    border-color: var(--border-subtle);
+}
+
+.rebalance-actions-list {
+    display: grid;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.rebalance-action-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+}
+
+.rebalance-action-item.buy {
+    border-left: 4px solid #34d399;
+}
+
+.rebalance-action-item.sell {
+    border-left: 4px solid #f87171;
+}
+
+.action-badge {
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+}
+
+.rebalance-action-item.buy .action-badge {
+    background: rgba(52, 211, 153, 0.15);
+    color: #34d399;
+}
+
+.rebalance-action-item.sell .action-badge {
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+}
+
+.action-text {
+    flex: 1;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.action-amount {
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+/* Arbitrage Buckets */
+.bucket-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.bucket-tab {
+    display: flex;
+    align-items: center;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.bucket-tab.is-active {
+    border-color: rgba(168, 85, 247, 0.6);
+    background: rgba(168, 85, 247, 0.12);
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.15);
+}
+
+.bucket-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 8px 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.bucket-tab.is-active .bucket-btn {
+    color: var(--text-primary);
+}
+
+.bucket-delete {
+    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    border-left: 1px solid var(--border-subtle);
+    color: var(--text-tertiary);
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.bucket-delete:hover {
+    background: rgba(248, 113, 113, 0.2);
+    color: #f87171;
+}
+
+.bucket-add {
+    background: var(--bg-surface-elevated);
+    border: 1px dashed var(--border-strong);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    padding: 8px 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.bucket-add:hover {
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+}
+
+.bucket-editor {
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 14px;
+    border: 1px solid var(--border-subtle);
+}
+
+.refresh-btn {
+    background: var(--gradient-neon);
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* Price Alerts */
+.price-alert-form {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.price-alert-form .input-with-price {
+    display: grid;
+    gap: 6px;
+    flex: 2 1 180px;
+}
+
+.input-price-hint {
+    font-size: 0.72rem;
+    color: #34d399;
+    font-weight: 600;
+}
+
+.price-alert-form input,
+.price-alert-form select {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    color: var(--text-primary);
+    padding: 11px 12px;
+    width: 100%;
+}
+
+.price-alert-form select {
+    flex: 1 1 100px;
+}
+
+.price-alert-form input[type="number"] {
+    flex: 1 1 130px;
+}
+
+.price-alert-form button {
+    background: var(--gradient-neon);
+    color: #fff;
+    border: none;
+    padding: 11px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--shadow-glow);
+    align-self: flex-start;
+}
+
+.price-alerts-list {
+    display: grid;
+    gap: 12px;
+}
+
+.price-alert-item {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+    padding: 14px 18px;
+    border-radius: 14px;
+    color: var(--text-primary);
+}
+
+.price-alert-type {
+    text-transform: capitalize;
+    color: var(--text-tertiary);
+    font-size: 0.85rem;
+}
+
+.price-alert-target {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.price-alert-current {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-left: auto;
+}
+
+.price-alert-current.triggered {
+    color: #34d399;
+    font-weight: 700;
+}
+
+.price-alert-item button {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-tertiary);
+    padding: 6px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.price-alert-item button:hover {
+    border-color: #f87171;
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.1);
+}
+
+.wizard-methodology {
+    background: rgba(168, 85, 247, 0.06);
+    border: 1px solid rgba(168, 85, 247, 0.15);
+    border-radius: 12px;
+    padding: 16px;
+    margin: 12px 0 20px !important;
+    font-size: 0.92rem;
+    color: var(--text-secondary);
+}
+
+.wizard-methodology strong {
+    color: #c084fc;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.wizard-methodology em {
+    color: var(--text-primary);
+    font-style: normal;
+    font-weight: 600;
+}

@@ -228,6 +228,15 @@ export default function Wizard({ ownerEmail, onPortfolioChanged, onRiskChange })
                         Suggested {result.risk} risk allocation for Rs{Number(result.amount).toFixed(0)} in the {result.locale} market
                     </div>
 
+                    <div className="card-note wizard-methodology">
+                        <strong>Generation Logic:</strong> This portfolio is split using a risk-adjusted model targeting 
+                        specific buckets: <em>Core</em> (stability), <em>Growth</em> (appreciation), 
+                        <em>Global</em> (diversification), <em>Hedge</em> (protection), and <em>Cash</em> (liquidity). 
+                        If certain buckets are missing (e.g. only Core and Cash appear), it indicates that either the 
+                        investment amount was too small for meaningful diversification in that category, 
+                        or no high-liquidity instruments were found for that bucket in the selected market.
+                    </div>
+
                     <div className="card-note" style={{ marginBottom: "10px" }}>
                         Review quantities before submit. Total invested: Rs{draftInvestedAmount.toFixed(2)} / Target Rs{targetAmount.toFixed(2)}
                     </div>
