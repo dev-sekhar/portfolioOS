@@ -1,7 +1,10 @@
 import math
+import logging
 from functools import lru_cache
 
 import yfinance as yf
+
+logger = logging.getLogger(__name__)
 
 
 _MARKET_SUFFIX = {
@@ -80,6 +83,21 @@ def resolve_symbol_candidates(
         if not symbol or symbol in seen:
             continue
 
+        quote_type = str(item.get("quoteType") or "").upper()
+        # Prefer ETFs and Mutual Funds, but allow EQUITY if it looks like a fund (usually has ETF in name)
+        # Note: YF often marks ETFs as EQUITY, so we check the name/symbol for fund indicators.
+        is_fund = quote_type in {"ETF", "MUTUALFUND"}
+        name = str(item.get("longname") or item.get("shortname") or symbol)
+        
+        fund_indicators = [" ETF", " FUND", " INDEX", " NIFTY", " S&P", " NASDAQ", " TOTAL MARKET"]
+        if not is_fund:
+            if any(indicator in name.upper() for indicator in fund_indicators):
+                is_fund = True
+        
+        # If we specifically want funds, and this isn't one, skip it.
+        # But for general search, we might allow it. 
+        # For the builder, we'll pass a flag.
+        
         exchange = str(item.get("exchangeDisp") or item.get("exchange") or "").upper()
         if not _market_match(symbol, exchange, market):
             continue
@@ -87,7 +105,6 @@ def resolve_symbol_candidates(
         if require_live_price and not _ticker_has_usable_price(symbol):
             continue
 
-        name = str(item.get("longname") or item.get("shortname") or symbol)
         score = 0
         if symbol == query_upper:
             score += 100
@@ -97,6 +114,8 @@ def resolve_symbol_candidates(
             score += 40
         if symbol.endswith(".NS"):
             score += 5
+        if is_fund:
+            score += 20 # Boost funds
 
         seen.add(symbol)
         candidates.append(
@@ -104,12 +123,40 @@ def resolve_symbol_candidates(
                 "symbol": symbol,
                 "name": name,
                 "exchange": exchange,
+                "quoteType": quote_type,
+                "isFund": is_fund,
                 "score": score,
             }
         )
 
     candidates.sort(key=lambda c: (c["score"], c["symbol"]), reverse=True)
     return candidates[:limit]
+
+
+def fetch_history(symbol: str, period: str = "5y") -> list[dict]:
+    """Fetch historical price data for charting."""
+    cleaned = (symbol or "").strip().upper()
+    if not cleaned:
+        return []
+    
+    try:
+        ticker = yf.Ticker(cleaned)
+        hist = ticker.history(period=period)
+        if hist.empty:
+            return []
+        
+        # Reset index to get dates
+        hist = hist.reset_index()
+        data = []
+        for _, row in hist.iterrows():
+            data.append({
+                "date": row["Date"].strftime("%Y-%m-%d"),
+                "price": round(float(row["Close"]), 4)
+            })
+        return data
+    except Exception as e:
+        logger.error(f"Error fetching history for {symbol}: {e}")
+        return []
 
 
 def is_valid_ticker(symbol: str, market: str = "global") -> bool:

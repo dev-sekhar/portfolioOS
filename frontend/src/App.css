@@ -1395,3 +1395,203 @@
     font-style: normal;
     font-weight: 600;
 }
+
+/* ── Bucket Reasoning ── */
+.wizard-methodology ul {
+    margin-top: 10px;
+    padding-left: 18px;
+    display: grid;
+    gap: 6px;
+}
+
+.wizard-methodology li {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.wizard-methodology li strong {
+    text-transform: capitalize;
+    color: #c084fc;
+    display: inline;
+    margin-bottom: 0;
+}
+
+.bucket-logic-tag {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.82rem;
+    color: var(--text-tertiary);
+    font-style: italic;
+    line-height: 1.5;
+    padding: 6px 10px;
+    border-left: 2px solid rgba(168, 85, 247, 0.4);
+    background: rgba(168, 85, 247, 0.05);
+    border-radius: 0 6px 6px 0;
+}
+
+/* ── Performance Chart Modal ── */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.78);
+    backdrop-filter: blur(10px);
+    display: grid;
+    place-items: center;
+    z-index: 10000;
+    padding: 20px;
+    animation: modal-fadein 0.2s ease;
+}
+
+@keyframes modal-fadein {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.modal-content {
+    background: linear-gradient(145deg, rgba(22, 22, 30, 0.98), rgba(14, 14, 19, 0.99));
+    border: 1px solid var(--border-strong);
+    border-radius: 24px;
+    width: min(840px, 100%);
+    max-height: 90vh;
+    padding: 32px;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), var(--shadow-glow);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    animation: modal-slide 0.25s ease;
+    overflow-y: auto;
+}
+
+@keyframes modal-slide {
+    from { transform: translateY(16px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+}
+
+.modal-content h4 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.modal-content h4 span {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-strong);
+    color: var(--text-primary);
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all 0.18s;
+}
+
+.modal-close-btn:hover {
+    background: rgba(248, 113, 113, 0.2);
+    border-color: rgba(248, 113, 113, 0.5);
+}
+
+.period-selector {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.period-selector button {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    padding: 6px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.82rem;
+    transition: all 0.2s;
+}
+
+.period-selector button:hover {
+    border-color: rgba(168, 85, 247, 0.4);
+    color: var(--text-primary);
+}
+
+.period-selector button.active {
+    background: var(--gradient-glow);
+    border-color: rgba(168, 85, 247, 0.55);
+    color: #fff;
+    box-shadow: var(--shadow-glow);
+}
+
+.chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 220px;
+    color: var(--text-tertiary);
+}
+
+.chart-stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.chart-stat {
+    padding: 12px 14px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.chart-stat-label {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+
+.chart-stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.chart-stat-value.positive { color: #34d399; }
+.chart-stat-value.negative { color: #f87171; }
+
+.chart-btn {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    border-radius: 8px;
+    background: rgba(168, 85, 247, 0.12);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    color: #c084fc;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.18s;
+}
+
+.chart-btn:hover {
+    background: rgba(168, 85, 247, 0.22);
+    border-color: rgba(168, 85, 247, 0.5);
+}

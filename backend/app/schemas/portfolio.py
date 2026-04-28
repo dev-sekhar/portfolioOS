@@ -49,6 +49,7 @@ class DeleteResponse(BaseModel):
 class BuildBucketRecommendation(BaseModel):
     bucket: str
     amount: float
+    logic: str
     suggestions: List[str]
 
 

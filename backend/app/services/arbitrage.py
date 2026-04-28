@@ -33,22 +33,6 @@ def build_arbitrage_snapshot(symbols: list[str] | None = None, threshold: float 
     watchlist = _normalize_symbols(symbols)
     now_utc = datetime.now(timezone.utc)
     market_open = _is_india_market_open(now_utc)
-
-    if not market_open:
-        return {
-            "updated_at": now_utc.isoformat(),
-            "threshold": threshold,
-            "market_open": False,
-            "market_status": "closed",
-            "tracked_count": len(watchlist),
-            "active_alert_count": 0,
-            "max_spread": 0.0,
-            "avg_spread": 0.0,
-            "top_spread_symbol": None,
-            "rows": [],
-            "alerts": [],
-        }
-
     rows = []
 
     for base_symbol in watchlist:
@@ -88,7 +72,7 @@ def build_arbitrage_snapshot(symbols: list[str] | None = None, threshold: float 
 
     rows.sort(key=lambda row: row["spread_abs"], reverse=True)
 
-    active_alerts = [row for row in rows if row["status"] == "ALERT"]
+    active_alerts = [row for row in rows if row["status"] == "ALERT"] if market_open else []
     max_spread = rows[0]["spread_abs"] if rows else 0.0
     avg_spread = sum(row["spread_abs"] for row in rows) / len(rows) if rows else 0.0
     top_row = rows[0] if rows else None
@@ -96,8 +80,8 @@ def build_arbitrage_snapshot(symbols: list[str] | None = None, threshold: float 
     return {
         "updated_at": now_utc.isoformat(),
         "threshold": threshold,
-        "market_open": True,
-        "market_status": "open",
+        "market_open": market_open,
+        "market_status": "open" if market_open else "closed",
         "tracked_count": len(rows),
         "active_alert_count": len(active_alerts),
         "max_spread": round(max_spread, 4),

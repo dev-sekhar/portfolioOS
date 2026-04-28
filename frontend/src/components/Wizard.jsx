@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
 import { addStock, buildPortfolio, fetchStockPrice } from "../services/api";
+import Button from "./ui/Button";
+import Input from "./ui/Input";
+import Select from "./ui/Select";
 
 export default function Wizard({ ownerEmail, onPortfolioChanged, onRiskChange }) {
     const [amount, setAmount] = useState("");
@@ -189,26 +192,26 @@ export default function Wizard({ ownerEmail, onPortfolioChanged, onRiskChange })
         <div className="wizard-section">
             <h3>Build Portfolio</h3>
 
-            <div className="wizard-controls">
-                <input
+            <div className="wizard-controls" style={{ display: 'flex', gap: '8px' }}>
+                <Input
                     placeholder="Amount"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                 />
 
-                <select value={risk} onChange={(e) => setRisk(e.target.value)}>
+                <Select value={risk} onChange={(e) => setRisk(e.target.value)}>
                     <option value="low">low</option>
                     <option value="medium">medium</option>
                     <option value="high">high</option>
-                </select>
+                </Select>
 
-                <select value={locale} onChange={(e) => setLocale(e.target.value)}>
+                <Select value={locale} onChange={(e) => setLocale(e.target.value)}>
                     <option value="india">india</option>
                     <option value="us">us</option>
                     <option value="global">global</option>
-                </select>
+                </Select>
 
-                <button onClick={build} disabled={isBuilding || !amount || Number(amount) <= 0} aria-busy={isBuilding}>
+                <Button onClick={build} disabled={isBuilding || !amount || Number(amount) <= 0} aria-busy={isBuilding}>
                     {isBuilding ? (
                         <span className="button-progress-wrap">
                             <span className="button-spinner" aria-hidden="true" />
@@ -217,7 +220,7 @@ export default function Wizard({ ownerEmail, onPortfolioChanged, onRiskChange })
                     ) : (
                         "Generate"
                     )}
-                </button>
+                </Button>
             </div>
 
             {buildError && <p className="arb-error">{buildError}</p>}
@@ -226,15 +229,6 @@ export default function Wizard({ ownerEmail, onPortfolioChanged, onRiskChange })
                 <div className="wizard-results">
                     <div className="wizard-summary">
                         Suggested {result.risk} risk allocation for Rs{Number(result.amount).toFixed(0)} in the {result.locale} market
-                    </div>
-
-                    <div className="card-note wizard-methodology">
-                        <strong>Generation Logic:</strong> This portfolio is split using a risk-adjusted model targeting 
-                        specific buckets: <em>Core</em> (stability), <em>Growth</em> (appreciation), 
-                        <em>Global</em> (diversification), <em>Hedge</em> (protection), and <em>Cash</em> (liquidity). 
-                        If certain buckets are missing (e.g. only Core and Cash appear), it indicates that either the 
-                        investment amount was too small for meaningful diversification in that category, 
-                        or no high-liquidity instruments were found for that bucket in the selected market.
                     </div>
 
                     <div className="card-note" style={{ marginBottom: "10px" }}>
@@ -263,7 +257,7 @@ export default function Wizard({ ownerEmail, onPortfolioChanged, onRiskChange })
                                             <td>{row.symbol}</td>
                                             <td>Rs{row.unitPrice.toFixed(2)}</td>
                                             <td>
-                                                <input
+                                                <Input
                                                     type="number"
                                                     min="1"
                                                     step="1"
@@ -273,7 +267,7 @@ export default function Wizard({ ownerEmail, onPortfolioChanged, onRiskChange })
                                             </td>
                                             <td>Rs{(row.qty * row.unitPrice).toFixed(2)}</td>
                                             <td>
-                                                <button type="button" onClick={() => removeDraftRow(row.id)}>Remove</button>
+                                                <Button type="button" onClick={() => removeDraftRow(row.id)}>Remove</Button>
                                             </td>
                                         </tr>
                                     ))}
@@ -283,9 +277,9 @@ export default function Wizard({ ownerEmail, onPortfolioChanged, onRiskChange })
                     )}
 
                     <div className="wizard-bulk-actions" style={{ marginTop: "12px" }}>
-                        <button onClick={submitDraft} disabled={isSubmitting || draftRows.length === 0}>
+                        <Button onClick={submitDraft} disabled={isSubmitting || draftRows.length === 0}>
                             {isSubmitting ? "Submitting..." : "Submit to Portfolio"}
-                        </button>
+                        </Button>
                     </div>
                     {submitSummary && <p className="card-note">{submitSummary}</p>}
                 </div>

@@ -4,6 +4,8 @@ from sqlalchemy import text
 import logging
 from app.core.database import Base, engine
 from app.core.config import settings
+from app.models.portfolio import Portfolio
+from app.models.settings import UserSettings
 from app.api.routes.portfolio import router as portfolio_router
 
 logging.basicConfig(
@@ -70,4 +72,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.api.routes.bulkdeals import router as bulkdeals_router
+from app.api.routes.shadow import router as shadow_router
+
 app.include_router(portfolio_router, prefix="", tags=["portfolio"])
+app.include_router(bulkdeals_router, prefix="/api", tags=["bulkdeals"])
+app.include_router(shadow_router, prefix="/api", tags=["shadow"])

@@ -11,12 +11,23 @@ import {
   fetchStockPrice,
   getStocks,
   searchStockSymbols,
+  getSettings,
+  updateSettings,
 } from "./services/api";
 import AllocationChart from "./components/AllocationChart";
 import Card from "./components/Card";
 import Wizard from "./components/Wizard";
+
 import { ASSUMPTION_HINTS } from "./config/assumptionHints";
 import { RUNTIME_SETTINGS } from "./config/runtimeSettings";
+import BulkDeals from "./components/BulkDeals";
+import EodChart from "./components/EodChart";
+import ShadowStrategy from "./components/ShadowStrategy";
+
+import Button from "./components/ui/Button";
+import Input from "./components/ui/Input";
+import Select from "./components/ui/Select";
+import DatePicker from "./components/ui/DatePicker";
 
 const RISK_TARGETS = {
   low: { core: 0.4, defensive: 0.3, global: 0.1, hedge: 0.1, cash: 0.1 },
@@ -46,6 +57,8 @@ export default function App({ googleClientConfigured = false }) {
     { id: "dashboard", label: "Dashboard" },
     { id: "portfolio", label: "Portfolio" },
     { id: "arbitrage", label: "Arbitrage" },
+    { id: "bulkdeals", label: "Bulk Deals" },
+    { id: "shadow", label: "Shadow Strategy" },
     { id: "profile", label: "User Profile" }
   ];
 
@@ -79,11 +92,7 @@ export default function App({ googleClientConfigured = false }) {
   const [arbitrageThreshold, setArbitrageThreshold] = useState(1);
   const defaultArbitrageAlertFrequencySec = Math.max(5, Math.round(RUNTIME_SETTINGS.arbitrage.refreshIntervalMs / 1000));
   const [arbitrageAlertFrequencySec, setArbitrageAlertFrequencySec] = useState(defaultArbitrageAlertFrequencySec);
-  const [arbitrageBuckets, setArbitrageBuckets] = useState([
-    { id: "default", name: "Default", symbols: "" }
-  ]);
-  const [activeArbitrageBucketId, setActiveArbitrageBucketId] = useState("default");
-  const [priceAlerts, setPriceAlerts] = useState([]);
+  const [arbitrageWatchlist, setArbitrageWatchlist] = useState("");
   const [arbitrage, setArbitrage] = useState(null);
   const [arbitrageLoading, setArbitrageLoading] = useState(false);
   const [arbitrageError, setArbitrageError] = useState("");
@@ -98,15 +107,12 @@ export default function App({ googleClientConfigured = false }) {
   const [priceStatus, setPriceStatus] = useState("idle");
   const debounceRef = useRef(null);
   const symbolDebounceRef = useRef(null);
-  const alertPriceDebounceRef = useRef(null);
   const audioCtxRef = useRef(null);
   const audioUnlockedRef = useRef(false);
   const seenArbitrageAlertKeysRef = useRef(new Set());
   const [symbolCandidates, setSymbolCandidates] = useState([]);
   const [symbolStatus, setSymbolStatus] = useState("idle");
   const [selectedSymbols, setSelectedSymbols] = useState([]);
-  const [activePortfolioTab, setActivePortfolioTab] = useState("show");
-  const [showRebalanceActions, setShowRebalanceActions] = useState(false);
   const [sessionRemainingMs, setSessionRemainingMs] = useState(0);
   const lastSessionRefreshAtRef = useRef(0);
   const [authUser, setAuthUser] = useState(() => {
@@ -139,24 +145,13 @@ export default function App({ googleClientConfigured = false }) {
   const sessionTimeoutMinutes = RUNTIME_SETTINGS.session.inactivityTimeoutMinutes;
   const sessionTimeoutMs = sessionTimeoutMinutes * 60 * 1000;
 
-  const [alertFormSymbol, setAlertFormSymbol] = useState("");
-  const [alertFormType, setAlertFormType] = useState("above");
-  const [alertFormTargetPrice, setAlertFormTargetPrice] = useState("");
-  const [alertFormStatus, setAlertFormStatus] = useState("idle"); // 'idle' | 'loading' | 'fetched' | 'error'
-  const [alertFormCurrentPrice, setAlertFormCurrentPrice] = useState(null);
-
-  const activeBucket = arbitrageBuckets.find(b => b.id === activeArbitrageBucketId) || arbitrageBuckets[0];
-
   const effectiveArbitrageSymbols = useMemo(() => {
-    const bucketSymbols = (activeBucket?.symbols || "")
+    return (arbitrageWatchlist || "")
       .split(",")
       .map((part) => part.trim().toUpperCase().split(".")[0])
-      .filter(Boolean);
-    
-    const alertSymbols = priceAlerts.map(a => a.symbol.toUpperCase());
-    
-    return [...new Set([...bucketSymbols, ...alertSymbols])];
-  }, [activeBucket?.symbols, priceAlerts]);
+      .filter(Boolean)
+      .filter((value, index, arr) => arr.indexOf(value) === index);
+  }, [arbitrageWatchlist]);
 
   const effectiveArbitrageWatchlistCsv = useMemo(
     () => effectiveArbitrageSymbols.join(","),
@@ -166,11 +161,8 @@ export default function App({ googleClientConfigured = false }) {
   const normalizedOwnerEmail = (authUser?.email || "").trim().toLowerCase();
   const sessionStorageKey = normalizedOwnerEmail ? `sessionExpiresAt:${normalizedOwnerEmail}` : "";
   const arbitrageWatchlistStorageKey = normalizedOwnerEmail
-    ? `arbitrageBuckets:${normalizedOwnerEmail}`
-    : "arbitrageBuckets:guest";
-  const priceAlertsStorageKey = normalizedOwnerEmail
-    ? `priceAlerts:${normalizedOwnerEmail}`
-    : "priceAlerts:guest";
+    ? `arbitrageWatchlist:${normalizedOwnerEmail}`
+    : "arbitrageWatchlist:guest";
   const arbitrageFrequencyStorageKey = normalizedOwnerEmail
     ? `arbitrageAlertFrequencySec:${normalizedOwnerEmail}`
     : "arbitrageAlertFrequencySec:guest";
@@ -324,7 +316,6 @@ export default function App({ googleClientConfigured = false }) {
     return `Worst retained value is ${worst.label} (about -${worst.drawdownPct.toFixed(0)}%), then ${ordered[1].label}; best retained value is ${best.label} (about -${best.drawdownPct.toFixed(0)}%).`;
   }, [result]);
 
-
   const playAlertTone = () => {
     if (!audioUnlockedRef.current) {
       return;
@@ -464,12 +455,13 @@ export default function App({ googleClientConfigured = false }) {
   }, [normalizedOwnerEmail, sessionStorageKey, sessionTimeoutMs]);
 
   useEffect(() => {
-    localStorage.setItem(arbitrageWatchlistStorageKey, JSON.stringify(arbitrageBuckets));
-  }, [arbitrageWatchlistStorageKey, arbitrageBuckets]);
-
-  useEffect(() => {
-    localStorage.setItem(priceAlertsStorageKey, JSON.stringify(priceAlerts));
-  }, [priceAlertsStorageKey, priceAlerts]);
+    if (!normalizedOwnerEmail) return;
+    localStorage.setItem(arbitrageWatchlistStorageKey, arbitrageWatchlist);
+    const timer = setTimeout(() => {
+      updateSettings(normalizedOwnerEmail, { arbitrage_watchlist: arbitrageWatchlist }).catch(console.error);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [arbitrageWatchlistStorageKey, arbitrageWatchlist, normalizedOwnerEmail]);
 
   useEffect(() => {
     localStorage.setItem(arbitrageFrequencyStorageKey, String(arbitrageAlertFrequencySec));
@@ -489,7 +481,7 @@ export default function App({ googleClientConfigured = false }) {
       setSelectedStockIds([]);
       setExpandedGroupKeys([]);
       setResult(null);
-      setArbitrageBuckets([{ id: "default", name: "Default", symbols: "" }]);
+      setArbitrageWatchlist("");
       setArbitrageAlertFrequencySec(defaultArbitrageAlertFrequencySec);
       setAlertsSnoozedUntilMs(0);
       setAlertsMutedDate("");
@@ -497,24 +489,19 @@ export default function App({ googleClientConfigured = false }) {
       return;
     }
 
-    try {
-      const savedBuckets = JSON.parse(localStorage.getItem(arbitrageWatchlistStorageKey));
-      if (Array.isArray(savedBuckets) && savedBuckets.length > 0) {
-        setArbitrageBuckets(savedBuckets);
+    const loadUserSettings = async () => {
+      try {
+        const res = await getSettings(normalizedOwnerEmail);
+        if (res.data && typeof res.data.arbitrage_watchlist === "string" && res.data.arbitrage_watchlist !== "") {
+          setArbitrageWatchlist(res.data.arbitrage_watchlist);
+        } else {
+          setArbitrageWatchlist(localStorage.getItem(arbitrageWatchlistStorageKey) || "");
+        }
+      } catch (err) {
+        setArbitrageWatchlist(localStorage.getItem(arbitrageWatchlistStorageKey) || "");
       }
-    } catch {
-      setArbitrageBuckets([{ id: "default", name: "Default", symbols: "" }]);
-    }
-
-    try {
-      const savedAlerts = JSON.parse(localStorage.getItem(priceAlertsStorageKey));
-      if (Array.isArray(savedAlerts)) {
-        setPriceAlerts(savedAlerts);
-      }
-    } catch {
-      setPriceAlerts([]);
-    }
-
+    };
+    loadUserSettings();
     const savedFrequency = Number(localStorage.getItem(arbitrageFrequencyStorageKey));
     setArbitrageAlertFrequencySec(
       Number.isFinite(savedFrequency) && savedFrequency >= 5 ? savedFrequency : defaultArbitrageAlertFrequencySec
@@ -537,7 +524,6 @@ export default function App({ googleClientConfigured = false }) {
     return () => {
       clearTimeout(debounceRef.current);
       clearTimeout(symbolDebounceRef.current);
-      clearTimeout(alertPriceDebounceRef.current);
     };
   }, []);
 
@@ -556,72 +542,6 @@ export default function App({ googleClientConfigured = false }) {
     };
   }, []);
 
-  const addArbitrageBucket = () => {
-    const newId = `bucket-${Date.now()}`;
-    setArbitrageBuckets(current => [...current, { id: newId, name: `New Bucket`, symbols: "" }]);
-    setActiveArbitrageBucketId(newId);
-  };
-
-  const deleteArbitrageBucket = (bucketId) => {
-    if (arbitrageBuckets.length <= 1) return;
-    setArbitrageBuckets(current => current.filter(b => b.id !== bucketId));
-    if (activeArbitrageBucketId === bucketId) {
-      setActiveArbitrageBucketId(arbitrageBuckets[0].id);
-    }
-  };
-
-  const updateArbitrageBucket = (bucketId, field, value) => {
-    setArbitrageBuckets(current => current.map(b => b.id === bucketId ? { ...b, [field]: value } : b));
-  };
-
-  const addPriceAlert = (symbol, market, targetPrice, type) => {
-    const newAlert = {
-      id: `alert-${Date.now()}`,
-      symbol,
-      market,
-      targetPrice: Number(targetPrice),
-      type, // 'above' | 'below'
-      active: true,
-      lastTriggeredAt: 0
-    };
-    setPriceAlerts(current => [...current, newAlert]);
-  };
-
-  const deletePriceAlert = (alertId) => {
-    setPriceAlerts(current => current.filter(a => a.id !== alertId));
-  };
-
-  const checkPriceAlerts = (snapshot) => {
-    if (!snapshot || !snapshot.tracked_items) return;
-
-    for (const alert of priceAlerts) {
-      if (!alert.active) continue;
-      
-      const match = snapshot.tracked_items.find(item => item.symbol === alert.symbol);
-      if (!match) continue;
-
-      const currentPrice = match.last_price;
-      const isTriggered = alert.type === 'above' ? currentPrice >= alert.targetPrice : currentPrice <= alert.targetPrice;
-
-      if (isTriggered) {
-        // Trigger alert only once per 5 minutes to avoid spam
-        if (Date.now() - alert.lastTriggeredAt > 300000) {
-          setGlobalArbAlert({
-            createdAt: Date.now(),
-            items: [{
-              symbol: alert.symbol,
-              type: 'price_alert',
-              text: `${alert.symbol} is ${alert.type} ${alert.targetPrice} (Currently: ${currentPrice})`
-            }],
-            threshold: 0
-          });
-          playAlertTone();
-          setPriceAlerts(current => current.map(a => a.id === alert.id ? { ...a, lastTriggeredAt: Date.now() } : a));
-        }
-      }
-    }
-  };
-
   const loadArbitrage = async () => {
     setArbitrageLoading(true);
     setArbitrageError("");
@@ -629,7 +549,6 @@ export default function App({ googleClientConfigured = false }) {
       const res = await fetchArbitrageSnapshot(effectiveArbitrageWatchlistCsv, arbitrageThreshold);
       const snapshot = res.data;
       setArbitrage(snapshot);
-      checkPriceAlerts(snapshot);
 
       const freshAlerts = (snapshot.alerts || []).filter((alert) => {
         const key = `${alert.symbol}:${alert.buy_exchange}:${alert.sell_exchange}:${alert.spread_abs}`;
@@ -740,30 +659,6 @@ export default function App({ googleClientConfigured = false }) {
     }, 350);
   };
 
-  const queueAlertPriceFetch = (symbol, market) => {
-    clearTimeout(alertPriceDebounceRef.current);
-    if (!symbol) {
-      setAlertFormStatus("idle");
-      setAlertFormCurrentPrice(null);
-      return;
-    }
-
-    alertPriceDebounceRef.current = setTimeout(async () => {
-      setAlertFormStatus("loading");
-      try {
-        const res = await fetchStockPrice(symbol, market);
-        const price = Number(res?.data?.price);
-        if (!Number.isFinite(price) || price <= 0) {
-          throw new Error("Invalid price");
-        }
-        setAlertFormCurrentPrice(price);
-        setAlertFormStatus("fetched");
-      } catch {
-        setAlertFormStatus("error");
-      }
-    }, 700);
-  };
-
 
   const goToSection = (sectionId) => {
     setActiveSection(sectionId);
@@ -802,10 +697,8 @@ export default function App({ googleClientConfigured = false }) {
     setPriceStatus("idle");
     queueSymbolSearch(symbol, form.market);
 
-    if (symbol.length >= 2) {
+    if (symbol.includes(".")) {
       queuePriceFetch(symbol, form.market);
-    } else {
-      setForm((prev) => ({ ...prev, current_market_price: "", average_cost_price: "" }));
     }
   };
 
@@ -850,11 +743,8 @@ export default function App({ googleClientConfigured = false }) {
     try {
       setAddError("");
       for (const symbol of symbolsToAdd) {
-        let marketPrice = 0;
-        // If single add, we can use the form's price if available
-        if (symbolsToAdd.length === 1 && Number(form.current_market_price) > 0) {
-          marketPrice = Number(form.current_market_price);
-        } else {
+        let marketPrice = Number(form.current_market_price);
+        if (!Number.isFinite(marketPrice) || marketPrice <= 0) {
           try {
             const priceRes = await fetchStockPrice(symbol, form.market);
             const fetched = Number(priceRes?.data?.price);
@@ -1053,72 +943,6 @@ export default function App({ googleClientConfigured = false }) {
       .sort((a, b) => a.stock_symbol.localeCompare(b.stock_symbol));
   }, [stocks]);
 
-  const rebalanceActions = useMemo(() => {
-    if (!result?.rebalance || groupedStocks.length === 0) return [];
-
-    const actions = [];
-    const entries = Object.entries(result.rebalance);
-
-    for (const [bucket, amount] of entries) {
-      if (Math.abs(amount) < 50) continue; // Ignore very small changes
-
-      if (amount > 0) {
-        const candidatesInBucket = groupedStocks.filter(s => s.category === bucket);
-        if (candidatesInBucket.length > 0) {
-          const topStock = candidatesInBucket.sort((a, b) => (b.value_at_market_price || 0) - (a.value_at_market_price || 0))[0];
-          const qtyToAdd = Math.round(amount / (topStock.current_market_price || 100));
-          if (qtyToAdd > 0) {
-            actions.push({
-              type: "buy",
-              bucket,
-              text: `Add ${qtyToAdd} units to ${topStock.stock_symbol} in ${bucket}`,
-              amount: qtyToAdd * (topStock.current_market_price || 0),
-              symbol: topStock.stock_symbol
-            });
-          }
-        } else {
-          const hints = BUCKET_CANDIDATE_HINTS[bucket] || ["a new index ETF"];
-          actions.push({
-            type: "buy",
-            bucket,
-            text: `Invest Rs${amount.toFixed(0)} in ${bucket} (e.g. ${hints[0]})`,
-            amount: amount
-          });
-        }
-      } else {
-        const candidatesInBucket = groupedStocks.filter(s => s.category === bucket);
-        if (candidatesInBucket.length > 0) {
-          const topStock = candidatesInBucket.sort((a, b) => (b.value_at_market_price || 0) - (a.value_at_market_price || 0))[0];
-          const value = Math.abs(amount);
-          const currentVal = topStock.value_at_market_price || 0;
-
-          if (value >= currentVal * 0.95) {
-            actions.push({
-              type: "sell",
-              bucket,
-              text: `Liquidate ${bucket} (${topStock.stock_symbol})`,
-              amount: currentVal,
-              symbol: topStock.stock_symbol
-            });
-          } else {
-            const qtyToTrim = Math.round(value / (topStock.current_market_price || 100));
-            if (qtyToTrim > 0) {
-              actions.push({
-                type: "sell",
-                bucket,
-                text: `Trim ${qtyToTrim} units of ${topStock.stock_symbol} in ${bucket}`,
-                amount: qtyToTrim * (topStock.current_market_price || 0),
-                symbol: topStock.stock_symbol
-              });
-            }
-          }
-        }
-      }
-    }
-
-    return actions.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
-  }, [result, groupedStocks]);
-
   const toggleGroupExpansion = (groupKey) => {
     setExpandedGroupKeys((current) =>
       current.includes(groupKey)
@@ -1252,527 +1076,476 @@ export default function App({ googleClientConfigured = false }) {
                 )}
               </Card>
             </div>
+            
+            <div style={{ marginTop: "24px" }}>
+              <EodChart ownerEmail={normalizedOwnerEmail} />
+            </div>
 
           </section>
         )}
 
         {activeSection === "portfolio" && (
           <section id="portfolio-section" className="app-section">
-            <div className="tab-container">
-              <button
-                className={`tab-button ${activePortfolioTab === "show" ? "is-active" : ""}`}
-                onClick={() => setActivePortfolioTab("show")}
-              >
-                Show Portfolio
-              </button>
-              <button
-                className={`tab-button ${activePortfolioTab === "build" ? "is-active" : ""}`}
-                onClick={() => setActivePortfolioTab("build")}
-              >
-                Build Portfolio
-              </button>
-              <button
-                className={`tab-button ${activePortfolioTab === "analyse" ? "is-active" : ""}`}
-                onClick={() => setActivePortfolioTab("analyse")}
-              >
-                Analyse Portfolio
-              </button>
-            </div>
-
-            {activePortfolioTab === "show" && (
-              <>
-                <div className="portfolio-header-actions">
-                  <button
-                    className="rebalance-btn"
-                    onClick={() => setShowRebalanceActions(!showRebalanceActions)}
-                    disabled={!result}
-                  >
-                    {showRebalanceActions ? "Hide Rebalance Recommendations" : "Rebalance Portfolio"}
-                  </button>
-                </div>
-
-                {showRebalanceActions && (
-                  <Card title="Rebalance Recommendations" subtitle="Specific actions to reach target allocation">
-                    {rebalanceActions.length > 0 ? (
-                      <div className="rebalance-actions-list">
-                        {rebalanceActions.map((action, idx) => (
-                          <div key={idx} className={`rebalance-action-item ${action.type}`}>
-                            <span className="action-badge">{action.type.toUpperCase()}</span>
-                            <span className="action-text">{action.text}</span>
-                            <span className="action-amount">~₹{action.amount.toFixed(0)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p>No major rebalancing needed for the current risk profile.</p>
-                    )}
-                  </Card>
-                )}
-
-                <Card title="Add Investment">
-                  <div className="input-row">
-                    <div className="symbol-input-wrap">
-                      <input
-                        placeholder="Stock Symbol"
-                        value={form.stock_symbol}
-                        onChange={(e) => handleSymbolChange(e.target.value)}
-                      />
-                      {symbolStatus === "loading" && <span className="symbol-hint">Searching symbols…</span>}
-                      {symbolStatus === "empty" && <span className="symbol-hint">No symbol match found</span>}
-                      {symbolStatus === "error" && <span className="symbol-hint">Symbol lookup failed</span>}
-                      {symbolCandidates.length > 0 && (
-                        <div className="symbol-dropdown" role="listbox" aria-label="Symbol suggestions">
-                          {symbolCandidates.map((candidate) => (
-                            <button
-                              key={candidate.symbol}
-                              type="button"
-                              className="symbol-option"
-                              onClick={() => chooseSymbolCandidate(candidate)}
-                            >
-                              <span>
-                                <input
-                                  type="checkbox"
-                                  checked={selectedSymbols.some((item) => item.symbol === candidate.symbol)}
-                                  readOnly
-                                />
-                                {candidate.name}
-                              </span>
-                              <small>{candidate.symbol} {candidate.exchange ? `(${candidate.exchange})` : ""}</small>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {selectedSymbols.length > 0 && (
-                        <div className="symbol-chip-wrap">
-                          {selectedSymbols.map((item) => (
-                            <button
-                              key={item.symbol}
-                              type="button"
-                              className="symbol-chip"
-                              onClick={() => removeSelectedSymbol(item.symbol)}
-                            >
-                              {item.symbol} x
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {priceStatus === "loading" && <span className="price-badge price-badge--loading">Fetching…</span>}
-                      {priceStatus === "fetched" && <span className="price-badge price-badge--ok">Live ●</span>}
-                      {priceStatus === "error" && <span className="price-badge price-badge--err">Not found</span>}
-                    </div>
-                    <input
-                      placeholder="Total Qty"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.total_qty}
-                      onChange={(e) => setForm({ ...form, total_qty: e.target.value })}
-                    />
-                    <input
-                      placeholder="Avg Cost Price"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.average_cost_price}
-                      onChange={(e) => setForm({ ...form, average_cost_price: e.target.value })}
-                    />
-                    <div className="price-input-wrap">
-                      <input
-                        placeholder="Current Market Price"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={form.current_market_price}
-                        readOnly
-                        className="price-input--readonly"
-                        onChange={() => {}}
-                      />
-                      {priceStatus === "fetched" && <span className="auto-filled-hint">auto-filled</span>}
-                    </div>
-                    <input
-                      type="date"
-                      value={form.transaction_date}
-                      onChange={(e) => setForm({ ...form, transaction_date: e.target.value })}
-                    />
-                    <select
-                      value={form.market}
-                      onChange={(e) => {
-                        const nextMarket = e.target.value;
-                        setForm({ ...form, market: nextMarket });
-                        queueSymbolSearch(form.stock_symbol, nextMarket);
-                        if (form.stock_symbol) {
-                          queuePriceFetch(form.stock_symbol, nextMarket);
-                        }
-                      }}
-                    >
-                      <option value="india">india</option>
-                      <option value="us">us</option>
-                      <option value="global">global</option>
-                    </select>
-                    <select
-                      value={form.category}
-                      onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    >
-                      <option value="core">core</option>
-                      <option value="growth">growth</option>
-                      <option value="defensive">defensive</option>
-                      <option value="global">global</option>
-                      <option value="hedge">hedge</option>
-                      <option value="cash">cash</option>
-                    </select>
-  
-                    <button onClick={handleAdd}>Add</button>
-                    <button onClick={handleAnalyze}>{analyzeLoading ? "Analyzing..." : "Analyze Now"}</button>
-                  </div>
-                  {addError && <p className="arb-error">{addError}</p>}
-                </Card>
-
-                <Card title="Portfolio" subtitle={`Created on ${formattedPortfolioDate}`}>
-                  {stocks.length === 0 ? (
-                    <p>No stocks added yet.</p>
-                  ) : (
-                    <div>
-                      <div className="stock-toolbar">
-                        <label className="toolbar-select-all">
-                          <input
-                            type="checkbox"
-                            checked={selectedStockIds.length === stocks.length}
-                            onChange={toggleSelectAllStocks}
-                          />
-                          Select all
-                        </label>
-
+            <Card title="Add Investment">
+              <div className="input-row">
+                <div className="symbol-input-wrap">
+                  <Input
+                    placeholder="Stock Symbol"
+                    value={form.stock_symbol}
+                    onChange={(e) => handleSymbolChange(e.target.value)}
+                  />
+                  {symbolStatus === "loading" && <span className="symbol-hint">Searching symbols…</span>}
+                  {symbolStatus === "empty" && <span className="symbol-hint">No symbol match found</span>}
+                  {symbolStatus === "error" && <span className="symbol-hint">Symbol lookup failed</span>}
+                  {symbolCandidates.length > 0 && (
+                    <div className="symbol-dropdown" role="listbox" aria-label="Symbol suggestions">
+                      {symbolCandidates.map((candidate) => (
                         <button
-                          onClick={handleDeleteSelectedStocks}
-                          disabled={selectedStockIds.length === 0}
+                          key={candidate.symbol}
+                          type="button"
+                          className="symbol-option"
+                          onClick={() => chooseSymbolCandidate(candidate)}
                         >
-                          Delete Selected
+                          <span>
+                            <input
+                              type="checkbox"
+                              checked={selectedSymbols.some((item) => item.symbol === candidate.symbol)}
+                              readOnly
+                            />
+                            {candidate.name}
+                          </span>
+                          <small>{candidate.symbol} {candidate.exchange ? `(${candidate.exchange})` : ""}</small>
                         </button>
-                      </div>
-
-                      <div className="portfolio-table-wrap">
-                        <table className="portfolio-table">
-                          <thead>
-                            <tr>
-                              <th>Select</th>
-                              <th>Stock Symbol</th>
-                              <th>Transaction Date</th>
-                              <th>Total Qty</th>
-                              <th>Avg Cost Price</th>
-                              <th>Current Market Price</th>
-                              <th>Price Portfolio Valuation Date</th>
-                              <th>Value At Cost</th>
-                              <th>Value At Market Price</th>
-                              <th>Profit/Loss Actual</th>
-                              <th>Profit/Loss %</th>
-                              <th>Category</th>
-                              <th>Action</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {groupedStocks.map((group) => {
-                              const isExpanded = expandedGroupKeys.includes(group.key);
-                              const isGroupSelected = group.transactions.every((txn) => selectedStockIds.includes(txn.id));
-
-                              return (
-                                <Fragment key={group.key}>
-                                  <tr key={group.key} className="portfolio-row portfolio-row--group">
-                                    <td>
-                                      <input
-                                        type="checkbox"
-                                        checked={isGroupSelected}
-                                        onChange={() => toggleGroupSelection(group)}
-                                      />
-                                    </td>
-                                    <td>
-                                      <div className="symbol-name-cell">
-                                        <button
-                                          type="button"
-                                          className="expand-btn"
-                                          onClick={() => toggleGroupExpansion(group.key)}
-                                        >
-                                          {isExpanded ? "-" : "+"} {group.stock_symbol}
-                                        </button>
-                                        <small>{group.company_name || "-"}</small>
-                                      </div>
-                                    </td>
-                                    <td>{group.latest_transaction_date}</td>
-                                    <td>{group.total_qty.toFixed(2)}</td>
-                                    <td>₹{group.average_cost_price.toFixed(2)}</td>
-                                    <td>₹{group.current_market_price.toFixed(2)}</td>
-                                    <td>{group.portfolio_valuation_date}</td>
-                                    <td>₹{group.value_at_cost.toFixed(2)}</td>
-                                    <td>₹{group.value_at_market_price.toFixed(2)}</td>
-                                    <td className={group.profit_loss_actual >= 0 ? "pl-positive" : "pl-negative"}>
-                                      ₹{group.profit_loss_actual.toFixed(2)}
-                                    </td>
-                                    <td className={group.profit_loss_percentage >= 0 ? "pl-positive" : "pl-negative"}>
-                                      {group.profit_loss_percentage.toFixed(2)}%
-                                    </td>
-                                    <td className="stock-meta">{group.category}</td>
-                                    <td>
-                                      <button onClick={() => handleDeleteGroup(group)}>Delete Group</button>
-                                    </td>
-                                  </tr>
-
-                                  {isExpanded && (
-                                    <tr className="portfolio-row-details" key={`${group.key}-details`}>
-                                      <td colSpan={13}>
-                                        <div className="group-transactions">
-                                          <table className="txn-table">
-                                            <thead>
-                                              <tr>
-                                                <th>Stock / Txn Date</th>
-                                                <th>Qty</th>
-                                                <th>Avg Cost</th>
-                                                <th>Current Price</th>
-                                                <th>Value @ Cost</th>
-                                                <th>Value @ Market</th>
-                                                <th>P/L</th>
-                                                <th>Category</th>
-                                                <th>Action</th>
-                                              </tr>
-                                            </thead>
-                                            <tbody>
-                                              {group.transactions.map((txn) => (
-                                                <tr key={txn.id}>
-                                                  <td>
-                                                    <div className="symbol-name-cell">
-                                                      <strong>{txn.stock_symbol}</strong>
-                                                      <small>{txn.company_name || "-"}</small>
-                                                      <small>{txn.transaction_date}</small>
-                                                    </div>
-                                                  </td>
-                                                  <td>{txn.total_qty.toFixed(2)}</td>
-                                                  <td>₹{txn.avg_cost_price.toFixed(2)}</td>
-                                                  <td>₹{txn.current_market_price.toFixed(2)}</td>
-                                                  <td>₹{txn.value_at_cost.toFixed(2)}</td>
-                                                  <td>₹{txn.value_at_market_price.toFixed(2)}</td>
-                                                  <td className={txn.profit_loss_actual >= 0 ? "pl-positive" : "pl-negative"}>
-                                                    ₹{txn.profit_loss_actual.toFixed(2)}
-                                                  </td>
-                                                  <td>{txn.category}</td>
-                                                  <td>
-                                                    <button onClick={() => handleDeleteStock(txn.id)}>Remove</button>
-                                                  </td>
-                                                </tr>
-                                              ))}
-                                            </tbody>
-                                          </table>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  )}
-                                </Fragment>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                      ))}
                     </div>
                   )}
-                </Card>
-              </>
-            )}
-
-            {activePortfolioTab === "build" && (
-              <>
-                <Wizard
-                  ownerEmail={normalizedOwnerEmail}
-                  onPortfolioChanged={loadStocks}
-                  onRiskChange={setTargetRisk}
+                  {selectedSymbols.length > 0 && (
+                    <div className="symbol-chip-wrap">
+                      {selectedSymbols.map((item) => (
+                        <button
+                          key={item.symbol}
+                          type="button"
+                          className="symbol-chip"
+                          onClick={() => removeSelectedSymbol(item.symbol)}
+                        >
+                          {item.symbol} x
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {priceStatus === "loading" && <span className="price-badge price-badge--loading">Fetching…</span>}
+                  {priceStatus === "fetched" && <span className="price-badge price-badge--ok">Live ●</span>}
+                  {priceStatus === "error" && <span className="price-badge price-badge--err">Not found</span>}
+                </div>
+                <Input
+                  placeholder="Total Qty"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.total_qty}
+                  onChange={(e) => setForm({ ...form, total_qty: e.target.value })}
                 />
-                <Card className="card-controls" title="Assumptions & Stress Controls" subtitle="Adjust analysis inputs with accessible controls">
-                  <div className="controls-grid">
-                    <label className="control-block">
-                      <span>Inflation Assumption: {inflation}%</span>
-                      <small id={ASSUMPTION_HINTS.inflation.ariaId} className="control-hint">
-                        {ASSUMPTION_HINTS.inflation.text}
-                      </small>
-                      <input
-                        type="range"
-                        min="0"
-                        max="15"
-                        step="0.5"
-                        value={inflation}
-                        aria-label="Inflation assumption percentage"
-                        aria-valuemin={0}
-                        aria-valuemax={15}
-                        aria-valuenow={inflation}
-                        aria-describedby={ASSUMPTION_HINTS.inflation.ariaId}
-                        onChange={(e) => setInflation(Number(e.target.value))}
-                      />
-                    </label>
+                <Input
+                  placeholder="Avg Cost Price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.average_cost_price}
+                  onChange={(e) => setForm({ ...form, average_cost_price: e.target.value })}
+                />
+                <div className="price-input-wrap">
+                  <Input
+                    placeholder="Current Market Price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.current_market_price}
+                    onChange={(e) => setForm({ ...form, current_market_price: e.target.value })}
+                  />
+                  {priceStatus === "fetched" && <span className="auto-filled-hint">auto-filled</span>}
+                </div>
+                <DatePicker
+                  value={form.transaction_date}
+                  onChange={(e) => setForm({ ...form, transaction_date: e.target.value })}
+                />
+                <Select
+                  value={form.market}
+                  onChange={(e) => {
+                    const nextMarket = e.target.value;
+                    setForm({ ...form, market: nextMarket });
+                    queueSymbolSearch(form.stock_symbol, nextMarket);
+                    if (form.stock_symbol) {
+                      queuePriceFetch(form.stock_symbol, nextMarket);
+                    }
+                  }}
+                >
+                  <option value="india">india</option>
+                  <option value="us">us</option>
+                  <option value="global">global</option>
+                </Select>
+                <Select
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                >
+                  <option value="core">core</option>
+                  <option value="growth">growth</option>
+                  <option value="defensive">defensive</option>
+                  <option value="global">global</option>
+                  <option value="hedge">hedge</option>
+                  <option value="cash">cash</option>
+                </Select>
 
-                    <label className="control-toggle">
+                <Button onClick={handleAdd}>Add</Button>
+                <Button onClick={handleAnalyze}>{analyzeLoading ? "Analyzing..." : "Analyze Portfolio"}</Button>
+              </div>
+              {addError && <p className="arb-error">{addError}</p>}
+            </Card>
+
+            <Card title="Portfolio" subtitle={`Created on ${formattedPortfolioDate}`}>
+              {stocks.length === 0 ? (
+                <p>No stocks added yet.</p>
+              ) : (
+                <div>
+                  <div className="stock-toolbar">
+                    <label className="toolbar-select-all">
                       <input
                         type="checkbox"
-                        checked={useSmartCagr}
-                        aria-label="Use sector based CAGR estimation"
-                        onChange={(e) => setUseSmartCagr(e.target.checked)}
+                        checked={selectedStockIds.length === stocks.length}
+                        onChange={toggleSelectAllStocks}
                       />
-                      <span>
-                        Use sector-based CAGR from selected instruments (5Y/10Y)
-                        <small className="control-hint">
-                          {ASSUMPTION_HINTS.smartCagr.text}
-                        </small>
-                      </span>
+                      Select all
                     </label>
 
-                    <label className="control-block">
-                      <span>Manual CAGR Override: {manualCagr}%</span>
-                      <small id={ASSUMPTION_HINTS.manualCagr.ariaId} className="control-hint">
-                        {ASSUMPTION_HINTS.manualCagr.text}
-                      </small>
-                      <input
-                        type="range"
-                        min="4"
-                        max="25"
-                        step="0.5"
-                        value={manualCagr}
-                        disabled={useSmartCagr}
-                        aria-label="Manual CAGR percentage override"
-                        aria-valuemin={4}
-                        aria-valuemax={25}
-                        aria-valuenow={manualCagr}
-                        aria-describedby={ASSUMPTION_HINTS.manualCagr.ariaId}
-                        onChange={(e) => setManualCagr(Number(e.target.value))}
-                      />
-                    </label>
+                    <Button
+                      onClick={handleDeleteSelectedStocks}
+                      disabled={selectedStockIds.length === 0}
+                    >
+                      Delete Selected
+                    </Button>
                   </div>
 
-                  <div className="stress-controls">
-                    <h3>Risk Stress Testing Controls</h3>
-                    <div className="stress-grid">
-                      <label className="control-block">
-                        <span>Mild Stress Drop: {stressLevels.mild}%</span>
-                        <small id={ASSUMPTION_HINTS.mildStress.ariaId} className="control-hint">
-                          {ASSUMPTION_HINTS.mildStress.text}
-                        </small>
-                        <input
-                          type="range"
-                          min="5"
-                          max="40"
-                          step="1"
-                          value={stressLevels.mild}
-                          aria-label="Mild stress drop percentage"
-                          aria-describedby={ASSUMPTION_HINTS.mildStress.ariaId}
-                          aria-valuemin={5}
-                          aria-valuemax={40}
-                          aria-valuenow={stressLevels.mild}
-                          onChange={(e) => updateStressLevel("mild", e.target.value)}
-                        />
-                      </label>
+                  <div className="portfolio-table-wrap">
+                    <table className="portfolio-table">
+                      <thead>
+                        <tr>
+                          <th>Select</th>
+                          <th>Stock Symbol</th>
+                          <th>Transaction Date</th>
+                          <th>Total Qty</th>
+                          <th>Avg Cost Price</th>
+                          <th>Current Market Price</th>
+                          <th>Price Portfolio Valuation Date</th>
+                          <th>Value At Cost</th>
+                          <th>Value At Market Price</th>
+                          <th>Profit/Loss Actual</th>
+                          <th>Profit/Loss %</th>
+                          <th>Category</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupedStocks.map((group) => {
+                          const isExpanded = expandedGroupKeys.includes(group.key);
+                          const isGroupSelected = group.transactions.every((txn) => selectedStockIds.includes(txn.id));
 
-                      <label className="control-block">
-                        <span>Recession Drop: {stressLevels.recession}%</span>
-                        <small id={ASSUMPTION_HINTS.recessionStress.ariaId} className="control-hint">
-                          {ASSUMPTION_HINTS.recessionStress.text}
-                        </small>
-                        <input
-                          type="range"
-                          min="10"
-                          max="60"
-                          step="1"
-                          value={stressLevels.recession}
-                          aria-label="Recession stress drop percentage"
-                          aria-describedby={ASSUMPTION_HINTS.recessionStress.ariaId}
-                          aria-valuemin={10}
-                          aria-valuemax={60}
-                          aria-valuenow={stressLevels.recession}
-                          onChange={(e) => updateStressLevel("recession", e.target.value)}
-                        />
-                      </label>
+                          return (
+                            <Fragment key={group.key}>
+                              <tr key={group.key} className="portfolio-row portfolio-row--group">
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={isGroupSelected}
+                                    onChange={() => toggleGroupSelection(group)}
+                                  />
+                                </td>
+                                <td>
+                                  <div className="symbol-name-cell">
+                                    <Button
+                                      type="button"
+                                      size="xs"
+                                      variant="outline"
+                                      onClick={() => toggleGroupExpansion(group.key)}
+                                    >
+                                      {isExpanded ? "-" : "+"} {group.stock_symbol}
+                                    </Button>
+                                    <small>{group.company_name || "-"}</small>
+                                  </div>
+                                </td>
+                                <td>{group.latest_transaction_date}</td>
+                                <td>{group.total_qty.toFixed(2)}</td>
+                                <td>₹{group.average_cost_price.toFixed(2)}</td>
+                                <td>₹{group.current_market_price.toFixed(2)}</td>
+                                <td>{group.portfolio_valuation_date}</td>
+                                <td>₹{group.value_at_cost.toFixed(2)}</td>
+                                <td>₹{group.value_at_market_price.toFixed(2)}</td>
+                                <td className={group.profit_loss_actual >= 0 ? "pl-positive" : "pl-negative"}>
+                                  ₹{group.profit_loss_actual.toFixed(2)}
+                                </td>
+                                <td className={group.profit_loss_percentage >= 0 ? "pl-positive" : "pl-negative"}>
+                                  {group.profit_loss_percentage.toFixed(2)}%
+                                </td>
+                                <td className="stock-meta">{group.category}</td>
+                                <td>
+                                  <Button size="xs" onClick={() => handleDeleteGroup(group)}>Delete Group</Button>
+                                </td>
+                              </tr>
 
-                      <label className="control-block">
-                        <span>Crash Drop: {stressLevels.crash}%</span>
-                        <small id={ASSUMPTION_HINTS.crashStress.ariaId} className="control-hint">
-                          {ASSUMPTION_HINTS.crashStress.text}
-                        </small>
-                        <input
-                          type="range"
-                          min="15"
-                          max="80"
-                          step="1"
-                          value={stressLevels.crash}
-                          aria-label="Crash stress drop percentage"
-                          aria-describedby={ASSUMPTION_HINTS.crashStress.ariaId}
-                          aria-valuemin={15}
-                          aria-valuemax={80}
-                          aria-valuenow={stressLevels.crash}
-                          onChange={(e) => updateStressLevel("crash", e.target.value)}
-                        />
-                      </label>
-                    </div>
+                              {isExpanded && (
+                                <tr className="portfolio-row-details" key={`${group.key}-details`}>
+                                  <td colSpan={13}>
+                                    <div className="group-transactions">
+                                      <table className="txn-table">
+                                        <thead>
+                                          <tr>
+                                            <th>Stock / Txn Date</th>
+                                            <th>Qty</th>
+                                            <th>Avg Cost</th>
+                                            <th>Current Price</th>
+                                            <th>Value @ Cost</th>
+                                            <th>Value @ Market</th>
+                                            <th>P/L</th>
+                                            <th>Category</th>
+                                            <th>Action</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {group.transactions.map((txn) => (
+                                            <tr key={txn.id}>
+                                              <td>
+                                                <div className="symbol-name-cell">
+                                                  <strong>{txn.stock_symbol}</strong>
+                                                  <small>{txn.company_name || "-"}</small>
+                                                  <small>{txn.transaction_date}</small>
+                                                </div>
+                                              </td>
+                                              <td>{txn.total_qty.toFixed(2)}</td>
+                                              <td>₹{txn.avg_cost_price.toFixed(2)}</td>
+                                              <td>₹{txn.current_market_price.toFixed(2)}</td>
+                                              <td>₹{txn.value_at_cost.toFixed(2)}</td>
+                                              <td>₹{txn.value_at_market_price.toFixed(2)}</td>
+                                              <td className={txn.profit_loss_actual >= 0 ? "pl-positive" : "pl-negative"}>
+                                                ₹{txn.profit_loss_actual.toFixed(2)}
+                                              </td>
+                                              <td>{txn.category}</td>
+                                              <td>
+                                                <Button size="xs" onClick={() => handleDeleteStock(txn.id)}>Remove</Button>
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            <Wizard
+              ownerEmail={normalizedOwnerEmail}
+              onPortfolioChanged={loadStocks}
+              onRiskChange={setTargetRisk}
+            />
+
+            <Card className="card-controls" title="Assumptions & Stress Controls" subtitle="Adjust analysis inputs with accessible controls">
+              <div className="controls-grid">
+                <label className="control-block">
+                  <span>Inflation Assumption: {inflation}%</span>
+                  <small id={ASSUMPTION_HINTS.inflation.ariaId} className="control-hint">
+                    {ASSUMPTION_HINTS.inflation.text}
+                  </small>
+                  <input
+                    type="range"
+                    min="0"
+                    max="15"
+                    step="0.5"
+                    value={inflation}
+                    aria-label="Inflation assumption percentage"
+                    aria-valuemin={0}
+                    aria-valuemax={15}
+                    aria-valuenow={inflation}
+                    aria-describedby={ASSUMPTION_HINTS.inflation.ariaId}
+                    onChange={(e) => setInflation(Number(e.target.value))}
+                  />
+                </label>
+
+                <label className="control-toggle">
+                  <input
+                    type="checkbox"
+                    checked={useSmartCagr}
+                    aria-label="Use sector based CAGR estimation"
+                    onChange={(e) => setUseSmartCagr(e.target.checked)}
+                  />
+                  <span>
+                    Use sector-based CAGR from selected instruments (5Y/10Y)
+                    <small className="control-hint">
+                      {ASSUMPTION_HINTS.smartCagr.text}
+                    </small>
+                  </span>
+                </label>
+
+                <label className="control-block">
+                  <span>Manual CAGR Override: {manualCagr}%</span>
+                  <small id={ASSUMPTION_HINTS.manualCagr.ariaId} className="control-hint">
+                    {ASSUMPTION_HINTS.manualCagr.text}
+                  </small>
+                  <input
+                    type="range"
+                    min="4"
+                    max="25"
+                    step="0.5"
+                    value={manualCagr}
+                    disabled={useSmartCagr}
+                    aria-label="Manual CAGR percentage override"
+                    aria-describedby={ASSUMPTION_HINTS.manualCagr.ariaId}
+                    aria-valuemin={4}
+                    aria-valuemax={25}
+                    aria-valuenow={manualCagr}
+                    onChange={(e) => setManualCagr(Number(e.target.value))}
+                  />
+                </label>
+
+                <label className="control-block">
+                  <span>Mild Stress Drop: {stressLevels.mild}%</span>
+                  <small id={ASSUMPTION_HINTS.mildStress.ariaId} className="control-hint">
+                    {ASSUMPTION_HINTS.mildStress.text}
+                  </small>
+                  <input
+                    type="range"
+                    min="5"
+                    max="40"
+                    step="1"
+                    value={stressLevels.mild}
+                    aria-label="Mild stress drop percentage"
+                    aria-describedby={ASSUMPTION_HINTS.mildStress.ariaId}
+                    aria-valuemin={5}
+                    aria-valuemax={40}
+                    aria-valuenow={stressLevels.mild}
+                    onChange={(e) => updateStressLevel("mild", e.target.value)}
+                  />
+                </label>
+
+                <label className="control-block">
+                  <span>Recession Drop: {stressLevels.recession}%</span>
+                  <small id={ASSUMPTION_HINTS.recessionStress.ariaId} className="control-hint">
+                    {ASSUMPTION_HINTS.recessionStress.text}
+                  </small>
+                  <input
+                    type="range"
+                    min="10"
+                    max="60"
+                    step="1"
+                    value={stressLevels.recession}
+                    aria-label="Recession stress drop percentage"
+                    aria-describedby={ASSUMPTION_HINTS.recessionStress.ariaId}
+                    aria-valuemin={10}
+                    aria-valuemax={60}
+                    aria-valuenow={stressLevels.recession}
+                    onChange={(e) => updateStressLevel("recession", e.target.value)}
+                  />
+                </label>
+
+                <label className="control-block">
+                  <span>Crash Drop: {stressLevels.crash}%</span>
+                  <small id={ASSUMPTION_HINTS.crashStress.ariaId} className="control-hint">
+                    {ASSUMPTION_HINTS.crashStress.text}
+                  </small>
+                  <input
+                    type="range"
+                    min="15"
+                    max="80"
+                    step="1"
+                    value={stressLevels.crash}
+                    aria-label="Crash stress drop percentage"
+                    aria-describedby={ASSUMPTION_HINTS.crashStress.ariaId}
+                    aria-valuemin={15}
+                    aria-valuemax={80}
+                    aria-valuenow={stressLevels.crash}
+                    onChange={(e) => updateStressLevel("crash", e.target.value)}
+                  />
+                </label>
+              </div>
+            </Card>
+
+            {result && (
+              <div className="results-grid">
+                <Card className="card-rebalance" title="Rebalance" subtitle="What rebalancing means">
+                  <p className="card-note">
+                    Rebalancing is the action required to bring your current allocation back to the target risk mix.
+                    Positive values mean add more in that bucket; negative values mean trim exposure.
+                  </p>
+                  <p className="card-note">{rebalanceExplanation.summary}</p>
+                  {rebalanceExplanation.candidateLine && <p className="card-note">{rebalanceExplanation.candidateLine}</p>}
+                  <p className="card-note">{rebalanceExplanation.defensiveLine}</p>
+                  <div className="metric-stack">
+                    {Object.entries(result.rebalance).map(([k, v]) => (
+                      <div key={k}>
+                        {k}: ₹{v.toFixed(0)}
+                      </div>
+                    ))}
                   </div>
                 </Card>
-              </>
-            )}
 
-            {activePortfolioTab === "analyse" && (
-              <>
-                {result && (
-                  <div className="results-grid">
-                    <Card className="card-rebalance" title="Rebalance" subtitle="What rebalancing means">
-                      <p className="card-note">
-                        Rebalancing is the action required to bring your current allocation back to the target risk mix.
-                        Positive values mean add more in that bucket; negative values mean trim exposure.
-                      </p>
-                      <p className="card-note">{rebalanceExplanation.summary}</p>
-                      {rebalanceExplanation.candidateLine && <p className="card-note">{rebalanceExplanation.candidateLine}</p>}
-                      <p className="card-note">{rebalanceExplanation.defensiveLine}</p>
-                      <div className="metric-stack">
-                        {Object.entries(result.rebalance).map(([k, v]) => (
-                          <div key={k}>
-                            {k}: ₹{v.toFixed(0)}
-                          </div>
-                        ))}
+                <Card className="card-projection" title="Projection" subtitle="How projection is calculated">
+                  <p className="card-note">
+                    Projections use compound annual growth with a nominal CAGR assumption of {assumedCagr}%.
+                    Formula: Future Value = Present Value x (1 + r)^n.
+                    CAGR source: {result.assumptions.cagr_source === "sector_estimated" ? "sector-weighted estimate" : "manual override"}.
+                  </p>
+                  <p className="card-note">{projectionExplanation}</p>
+                  <div className="metric-stack">
+                    <div>Nominal 5Y: ₹{result.projection_5y.toFixed(0)}</div>
+                    <div>Nominal 10Y: ₹{result.projection_10y.toFixed(0)}</div>
+                    <div>Inflation-adjusted 5Y ({assumedInflation}%): ₹{realValue5Y.toFixed(0)}</div>
+                    <div>Inflation-adjusted 10Y ({assumedInflation}%): ₹{realValue10Y.toFixed(0)}</div>
+                    {result.assumptions.cagr_source === "sector_estimated" && (
+                      <div>
+                        Sector mix used: {Object.entries(result.assumptions.sector_mix)
+                          .map(([sector, weight]) => `${sector} ${(weight * 100).toFixed(0)}%`)
+                          .join(", ")}
                       </div>
-                    </Card>
-
-                    <Card className="card-projection" title="Projection" subtitle="How projection is calculated">
-                      <p className="card-note">
-                        Projections use compound annual growth with a nominal CAGR assumption of {assumedCagr}%.
-                        Formula: Future Value = Present Value x (1 + r)^n.
-                        CAGR source: {result.assumptions.cagr_source === "sector_estimated" ? "sector-weighted estimate" : "manual override"}.
-                      </p>
-                      <p className="card-note">{projectionExplanation}</p>
-                      <div className="metric-stack">
-                        <div>Nominal 5Y: ₹{result.projection_5y.toFixed(0)}</div>
-                        <div>Nominal 10Y: ₹{result.projection_10y.toFixed(0)}</div>
-                        <div>Inflation-adjusted 5Y ({assumedInflation}%): ₹{realValue5Y.toFixed(0)}</div>
-                        <div>Inflation-adjusted 10Y ({assumedInflation}%): ₹{realValue10Y.toFixed(0)}</div>
-                        {result.assumptions.cagr_source === "sector_estimated" && (
-                          <div>
-                            Sector mix used: {Object.entries(result.assumptions.sector_mix)
-                              .map(([sector, weight]) => `${sector} ${(weight * 100).toFixed(0)}%`)
-                              .join(", ")}
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-
-                    <Card className="card-risk" title="Risk" subtitle="Stress and macro assumptions">
-                      <p className="card-note">
-                        Risk view applies stress shocks (-10%, -20%, -30%) to estimate downside in mild, recession,
-                        and crash markets. Geopolitical and inflation pressures are modeled as scenario assumptions,
-                        not as live macro feeds.
-                      </p>
-                      <p className="card-note">{riskScenarioExplanation}</p>
-                      <div className="metric-stack">
-                        <div>Mild (-{result.stress.levels.mild_drop}%): ₹{result.stress.mild.toFixed(0)}</div>
-                        <div>Recession (-{result.stress.levels.recession_drop}%): ₹{result.stress.recession.toFixed(0)}</div>
-                        <div>Crash (-{result.stress.levels.crash_drop}%): ₹{result.stress.crash.toFixed(0)}</div>
-                        <div className="card-note" style={{ marginTop: "10px" }}>Event-based downside scenarios:</div>
-                        <div>Pandemic 2020: ₹{result.event_risk.pandemic_2020.toFixed(0)}</div>
-                        <div>Bank Meltdown 2007: ₹{result.event_risk.bank_meltdown_2007.toFixed(0)}</div>
-                        <div>War 2026: ₹{result.event_risk.war_2026.toFixed(0)}</div>
-                      </div>
-                    </Card>
+                    )}
                   </div>
-                )}
-              </>
+                </Card>
+
+                <Card className="card-risk" title="Risk" subtitle="Stress and macro assumptions">
+                  <p className="card-note">
+                    Risk view applies stress shocks (-10%, -20%, -30%) to estimate downside in mild, recession,
+                    and crash markets. Geopolitical and inflation pressures are modeled as scenario assumptions,
+                    not as live macro feeds.
+                  </p>
+                  <p className="card-note">{riskScenarioExplanation}</p>
+                  <div className="metric-stack">
+                    <div>Mild (-{result.stress.levels.mild_drop}%): ₹{result.stress.mild.toFixed(0)}</div>
+                    <div>Recession (-{result.stress.levels.recession_drop}%): ₹{result.stress.recession.toFixed(0)}</div>
+                    <div>Crash (-{result.stress.levels.crash_drop}%): ₹{result.stress.crash.toFixed(0)}</div>
+                    <div className="card-note" style={{ marginTop: "10px" }}>Event-based downside scenarios:</div>
+                    <div>Pandemic 2020: ₹{result.event_risk.pandemic_2020.toFixed(0)}</div>
+                    <div>Bank Meltdown 2007: ₹{result.event_risk.bank_meltdown_2007.toFixed(0)}</div>
+                    <div>War 2026: ₹{result.event_risk.war_2026.toFixed(0)}</div>
+                  </div>
+                </Card>
+              </div>
             )}
+          </section>
+        )}
+
+        {activeSection === "bulkdeals" && (
+          <section id="bulkdeals-section" className="app-section">
+            <BulkDeals />
+          </section>
+        )}
+
+        {activeSection === "shadow" && (
+          <section id="shadow-section" className="app-section">
+            <ShadowStrategy />
           </section>
         )}
 
@@ -1784,7 +1557,7 @@ export default function App({ googleClientConfigured = false }) {
               <p>Preferred risk profile: {targetRisk}</p>
               <label className="profile-setting-row">
                 <span>Arbitrage Alert Frequency</span>
-                <select
+                <Select
                   value={arbitrageAlertFrequencySec}
                   onChange={(e) => setArbitrageAlertFrequencySec(Number(e.target.value))}
                 >
@@ -1794,7 +1567,7 @@ export default function App({ googleClientConfigured = false }) {
                   <option value={30}>Every 30 seconds</option>
                   <option value={45}>Every 45 seconds</option>
                   <option value={60}>Every 60 seconds</option>
-                </select>
+                </Select>
               </label>
               <p className="card-note">This controls how often arbitrage alerts and spread snapshots are refreshed.</p>
             </Card>
@@ -1804,59 +1577,32 @@ export default function App({ googleClientConfigured = false }) {
         {activeSection === "arbitrage" && (
           <section id="arbitrage-section" className="app-section">
             <Card
-              title="Arbitrage Buckets"
-              subtitle="Manage multiple watchlists for arbitrage tracking"
-            >
-              <div className="bucket-tabs">
-                {arbitrageBuckets.map(bucket => (
-                  <div key={bucket.id} className={`bucket-tab ${activeArbitrageBucketId === bucket.id ? "is-active" : ""}`}>
-                    <button onClick={() => setActiveArbitrageBucketId(bucket.id)} className="bucket-btn">
-                      {bucket.name}
-                    </button>
-                    <button onClick={() => deleteArbitrageBucket(bucket.id)} className="bucket-delete">x</button>
-                  </div>
-                ))}
-                <button onClick={addArbitrageBucket} className="bucket-add">+</button>
-              </div>
-              
-              <div className="bucket-editor">
-                <div className="arb-controls">
-                  <label>
-                    Bucket Name
-                    <input
-                      value={activeBucket.name}
-                      onChange={(e) => updateArbitrageBucket(activeArbitrageBucketId, "name", e.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Watchlist (comma separated)
-                    <input
-                      value={activeBucket.symbols}
-                      onChange={(e) => updateArbitrageBucket(activeArbitrageBucketId, "symbols", e.target.value.toUpperCase())}
-                      placeholder="RELIANCE,TCS,INFY"
-                    />
-                  </label>
-                  <label>
-                    Alert Threshold (Rs)
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={arbitrageThreshold}
-                      onChange={(e) => setArbitrageThreshold(Number(e.target.value))}
-                    />
-                  </label>
-                  <button onClick={loadArbitrage} disabled={arbitrageLoading} className="refresh-btn">
-                    {arbitrageLoading ? "Refreshing..." : "Refresh Bucket"}
-                  </button>
-                </div>
-              </div>
-            </Card>
-
-            <Card
               title="Live Exchange Arbitrage Dashboard"
-              subtitle={`Tracking ${activeBucket.name} (${arbitrageAlertFrequencySec}s refresh)`}
+              subtitle={`Tracks NSE vs BSE spread and flags opportunities above your threshold (refresh every ${arbitrageAlertFrequencySec}s)`}
             >
+              <div className="arb-controls">
+                <label>
+                  Watchlist (comma separated)
+                  <Input
+                    value={arbitrageWatchlist}
+                    onChange={(e) => setArbitrageWatchlist(e.target.value.toUpperCase())}
+                    placeholder="RELIANCE,TCS,INFY"
+                  />
+                </label>
+                <label>
+                  Alert Threshold (Rs)
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={arbitrageThreshold}
+                    onChange={(e) => setArbitrageThreshold(Number(e.target.value))}
+                  />
+                </label>
+                <Button onClick={loadArbitrage} disabled={arbitrageLoading}>
+                  {arbitrageLoading ? "Refreshing..." : "Refresh Feed"}
+                </Button>
+              </div>
               <div className="arb-chip-row" aria-label="Monitored symbols">
                 {effectiveArbitrageSymbols.map((symbol) => (
                   <span key={symbol} className="arb-chip">{symbol}</span>
@@ -1869,7 +1615,7 @@ export default function App({ googleClientConfigured = false }) {
                       ? "Alerts stopped for today"
                       : `Alerts snoozed until ${new Date(alertsSnoozedUntilMs).toLocaleTimeString()}`}
                   </span>
-                  <button type="button" onClick={resumeAlerts}>Resume Alerts</button>
+                  <Button type="button" onClick={resumeAlerts}>Resume Alerts</Button>
                 </div>
               )}
               {arbitrage?.market_open === false && (
@@ -1878,64 +1624,6 @@ export default function App({ googleClientConfigured = false }) {
                 </p>
               )}
               {arbitrageError && <p className="arb-error">{arbitrageError}</p>}
-            </Card>
-
-            <Card title="Price Alerts" subtitle="Monitor specific stock prices and get notified">
-              <div className="price-alert-form">
-                <div className="input-with-price">
-                  <input 
-                    value={alertFormSymbol} 
-                    onChange={(e) => {
-                      const val = e.target.value.toUpperCase();
-                      setAlertFormSymbol(val);
-                      queueAlertPriceFetch(val, "india");
-                    }}
-                    placeholder="Symbol (e.g. INFY)" 
-                  />
-                  {alertFormStatus === 'loading' && <span className="input-price-hint">Loading...</span>}
-                  {alertFormStatus === 'fetched' && <span className="input-price-hint">₹{alertFormCurrentPrice}</span>}
-                </div>
-                <select value={alertFormType} onChange={(e) => setAlertFormType(e.target.value)}>
-                  <option value="above">Above</option>
-                  <option value="below">Below</option>
-                </select>
-                <input 
-                  type="number" 
-                  value={alertFormTargetPrice}
-                  onChange={(e) => setAlertFormTargetPrice(e.target.value)}
-                  placeholder="Target Price" 
-                />
-                <button onClick={() => {
-                  if (alertFormSymbol && alertFormTargetPrice) {
-                    addPriceAlert(alertFormSymbol.toUpperCase(), "india", alertFormTargetPrice, alertFormType);
-                    setAlertFormTargetPrice("");
-                  }
-                }}>Add Alert</button>
-              </div>
-              
-              <div className="price-alerts-list">
-                {priceAlerts.length === 0 ? <p className="card-note">No price alerts set.</p> : (
-                  priceAlerts.map(alert => {
-                    const match = arbitrage?.tracked_items?.find(item => item.symbol === alert.symbol);
-                    const currentPrice = match?.last_price;
-                    return (
-                      <div key={alert.id} className="price-alert-item">
-                        <strong>{alert.symbol}</strong> 
-                        <span className="price-alert-type">{alert.type}</span> 
-                        <span className="price-alert-target">₹{alert.targetPrice}</span>
-                        {currentPrice && (
-                          <span className={`price-alert-current ${
-                            alert.type === 'above' ? (currentPrice >= alert.targetPrice ? 'triggered' : '') : (currentPrice <= alert.targetPrice ? 'triggered' : '')
-                          }`}>
-                            (Current: ₹{currentPrice})
-                          </span>
-                        )}
-                        <button onClick={() => deletePriceAlert(alert.id)}>Remove</button>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
             </Card>
 
             <div className="arb-stats-grid">
@@ -2035,11 +1723,11 @@ export default function App({ googleClientConfigured = false }) {
             <div className="arb-global-header">
               <strong>Arbitrage Opportunity Alert</strong>
               <div className="arb-global-actions">
-                <button type="button" onClick={() => snoozeAlerts(5)}>Snooze 5m</button>
-                <button type="button" onClick={() => snoozeAlerts(10)}>Snooze 10m</button>
-                <button type="button" onClick={() => snoozeAlerts(30)}>Snooze 30m</button>
-                <button type="button" onClick={stopAlertsForToday}>Stop Today</button>
-                <button type="button" onClick={() => setGlobalArbAlert(null)}>Dismiss</button>
+                <Button type="button" onClick={() => snoozeAlerts(5)}>Snooze 5m</Button>
+                <Button type="button" onClick={() => snoozeAlerts(10)}>Snooze 10m</Button>
+                <Button type="button" onClick={() => snoozeAlerts(30)}>Snooze 30m</Button>
+                <Button type="button" onClick={stopAlertsForToday}>Stop Today</Button>
+                <Button type="button" onClick={() => setGlobalArbAlert(null)}>Dismiss</Button>
               </div>
             </div>
             <div className="arb-global-body">

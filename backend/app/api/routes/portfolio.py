@@ -19,8 +19,14 @@ from app.services.projections import estimate_portfolio_cagr, future_value, infl
 from app.services.risk import event_risk, stress_test
 from app.services.builder import build_bucket_recommendations
 from app.utils.helpers import infer_market_from_symbol
-from app.services.price_feed import fetch_live_price, is_valid_ticker, resolve_symbol_candidates
+from app.services.price_feed import fetch_live_price, is_valid_ticker, resolve_symbol_candidates, fetch_history
 from app.services.arbitrage import build_arbitrage_snapshot
+from app.services.evaluator import get_portfolio_eod_performance
+from app.models.settings import UserSettings
+from pydantic import BaseModel
+
+class SettingsUpdate(BaseModel):
+    arbitrage_watchlist: str | None = None
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -250,3 +256,41 @@ def arbitrage_snapshot(symbols: str | None = None, threshold: float = 1.0):
         parsed_symbols = [part.strip() for part in symbols.split(",") if part.strip()]
 
     return build_arbitrage_snapshot(parsed_symbols, threshold)
+
+
+@router.get("/history/{symbol}")
+def get_history(symbol: str, period: str = "5y"):
+    """Fetch historical price data for charting."""
+    data = fetch_history(symbol, period)
+    if not data:
+        raise HTTPException(status_code=404, detail=f"No history found for {symbol}")
+    return {"symbol": symbol, "period": period, "history": data}
+
+
+@router.get("/settings")
+def get_settings(owner_email: str, db: Session = Depends(get_db)):
+    settings = db.query(UserSettings).filter(UserSettings.owner_email == owner_email.strip().lower()).first()
+    if not settings:
+        return {"arbitrage_watchlist": ""}
+    return {"arbitrage_watchlist": settings.arbitrage_watchlist or ""}
+
+
+@router.post("/settings")
+def update_settings(owner_email: str, data: SettingsUpdate, db: Session = Depends(get_db)):
+    email = owner_email.strip().lower()
+    settings = db.query(UserSettings).filter(UserSettings.owner_email == email).first()
+    if not settings:
+        settings = UserSettings(owner_email=email, arbitrage_watchlist=data.arbitrage_watchlist)
+        db.add(settings)
+    else:
+        settings.arbitrage_watchlist = data.arbitrage_watchlist
+    db.commit()
+    return {"status": "ok"}
+
+
+@router.get("/eod-performance")
+def get_eod_performance(owner_email: str, start_date: str = None, end_date: str = None, db: Session = Depends(get_db)):
+    data = db.query(Portfolio).filter(Portfolio.owner_email == owner_email.strip().lower()).all()
+    if not data:
+        return []
+    return get_portfolio_eod_performance(data, start_date, end_date)

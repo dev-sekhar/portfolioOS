@@ -5,43 +5,40 @@ import time
 
 logger = logging.getLogger(__name__)
 
-
 # Seed queries by locale and risk bucket; results are fetched dynamically.
 BUCKET_QUERY_SEEDS = {
     "india": {
-        "core": ["Nifty ETF", "Sensex ETF", "large cap india"],
-        "growth": ["technology india", "midcap india", "growth india"],
-        "defensive": ["FMCG india", "healthcare india", "consumer staples india"],
-        "global": ["Nasdaq India ETF", "S&P 500 India ETF", "US index india"],
-        "hedge": ["gold india", "silver india", "commodity india"],
-        "cash": ["liquid bees", "treasury india", "short term debt india"],
+        "core": ["Nifty 50 ETF", "Sensex ETF", "large cap index fund"],
+        "growth": ["Nifty Next 50 ETF", "midcap index fund", "tech fund india"],
+        "defensive": ["low volatility ETF india", "dividend yield fund india", "fmcg fund"],
+        "global": ["Nasdaq 100 ETF india", "S&P 500 ETF india", "US total market fund"],
     },
     "us": {
         "core": ["S&P 500 ETF", "total market ETF", "dow jones ETF"],
-        "growth": ["nasdaq 100", "semiconductor ETF", "cloud computing ETF"],
-        "defensive": ["consumer staples ETF", "healthcare ETF", "utilities ETF"],
-        "global": ["international equity ETF", "developed markets ETF", "world ETF"],
-        "hedge": ["gold ETF", "silver ETF", "commodity ETF"],
-        "cash": ["treasury bill ETF", "ultra short bond ETF", "money market ETF"],
+        "growth": ["nasdaq 100", "semiconductor ETF", "growth index fund"],
+        "defensive": ["dividend appreciation ETF", "low volatility ETF", "value fund"],
+        "global": ["international equity ETF", "developed markets ETF", "emerging markets fund"],
     },
     "global": {
-        "core": ["world index ETF", "global equity ETF", "broad market ETF"],
-        "growth": ["technology ETF", "innovation ETF", "growth ETF"],
-        "defensive": ["consumer staples ETF", "healthcare ETF", "dividend ETF"],
-        "global": ["international ETF", "developed market ETF", "emerging markets ETF"],
-        "hedge": ["gold ETF", "commodity ETF", "inflation ETF"],
-        "cash": ["short term bond ETF", "treasury ETF", "money market ETF"],
+        "core": ["world index ETF", "global equity ETF", "broad market fund"],
+        "growth": ["tech ETF", "innovation fund", "growth ETF"],
+        "defensive": ["dividend aristocrats ETF", "low volatility fund", "value ETF"],
+        "global": ["international ETF", "developed market fund", "emerging markets fund"],
     },
 }
 
-
 _BUCKET_GENERIC_TERMS = {
-    "core": ["index fund", "bluechip", "broad market"],
-    "growth": ["technology", "innovation", "momentum"],
-    "defensive": ["consumer staples", "healthcare", "dividend"],
-    "global": ["international", "world", "developed markets"],
-    "hedge": ["gold", "commodity", "inflation"],
-    "cash": ["money market", "treasury", "ultra short"],
+    "core": ["index fund", "broad market ETF", "large cap fund"],
+    "growth": ["growth fund", "innovation ETF", "midcap fund"],
+    "defensive": ["low volatility fund", "dividend fund", "value ETF"],
+    "global": ["international fund", "world ETF", "global equity fund"],
+}
+
+BUCKET_REASONING = {
+    "core": "Foundation of the portfolio using broad-market index funds for stable, long-term growth with lower costs.",
+    "growth": "Focuses on high-growth sectors and mid-cap companies to capture capital appreciation in expanding markets.",
+    "defensive": "Low-volatility and value-oriented funds designed to provide stability and downside protection during market downturns.",
+    "global": "Provides geographic diversification across international markets to reduce dependency on a single country's economy.",
 }
 
 
@@ -54,29 +51,24 @@ def build_portfolio(amount, risk):
 
     if risk == "low":
         return {
-            "core": 0.4,
-            "defensive": 0.3,
+            "core": 0.5,
+            "defensive": 0.4,
             "global": 0.1,
-            "hedge": 0.1,
-            "cash": 0.1
         }
 
     elif risk == "medium":
         return {
-            "core": 0.3,
+            "core": 0.4,
             "growth": 0.3,
-            "global": 0.2,
-            "hedge": 0.1,
-            "cash": 0.1
+            "defensive": 0.2,
+            "global": 0.1,
         }
 
     elif risk == "high":
         return {
-            "growth": 0.5,
+            "growth": 0.6,
             "core": 0.2,
             "global": 0.2,
-            "hedge": 0.05,
-            "cash": 0.05
         }
 
     else:
@@ -98,7 +90,7 @@ def _build_query_plan(locale, bucket):
 
     # Live-only discovery plan: bucket-specific seeds + runtime-expanded generic terms.
     generic = [f"{term} {locale_hint}" for term in _BUCKET_GENERIC_TERMS.get(bucket, [])]
-    broad = [f"{bucket} {locale_hint} ETF", f"{bucket} {locale_hint} stock"]
+    broad = [f"{bucket} {locale_hint} ETF", f"{bucket} {locale_hint} index fund"]
 
     plan = []
     seen = set()
@@ -205,6 +197,7 @@ def build_bucket_recommendations(amount, risk, locale):
         {
             "bucket": bucket,
             "amount": bucket_amount,
+            "logic": BUCKET_REASONING.get(bucket, ""),
             "suggestions": get_bucket_suggestions(locale, bucket)
         }
         for bucket, bucket_amount in amounts.items()
