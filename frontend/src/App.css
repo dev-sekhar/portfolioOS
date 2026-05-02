@@ -377,12 +377,12 @@
 }
 
 .portfolio-table th {
-    color: var(--text-primary);
+    color: #ffffff !important;
     font-size: 0.86rem;
 }
 
 .portfolio-table td {
-    color: var(--text-secondary);
+    color: #ffffff !important;
 }
 
 .portfolio-row--group td {
@@ -420,11 +420,12 @@
     text-align: left;
     border-bottom: 1px solid var(--border-subtle);
     white-space: nowrap;
+    color: #ffffff !important;
 }
 
 .txn-table th {
     font-size: 0.78rem;
-    color: var(--text-tertiary);
+    color: #ffffff !important;
 }
 
 .pl-positive {
@@ -463,7 +464,7 @@
 
 .stock-meta {
     text-transform: capitalize;
-    color: var(--text-secondary);
+    color: #ffffff !important;
 }
 
 .app-section p,
@@ -1037,7 +1038,8 @@
     margin-top: 10px;
     display: grid;
     gap: 6px;
-    max-width: 320px;
+    width: fit-content;
+    max-width: 100%;
 }
 
 .profile-setting-row span {
@@ -1051,6 +1053,9 @@
     border-radius: 12px;
     color: var(--text-primary);
     padding: 10px 12px;
+    min-width: 300px;
+    min-height: 38px;
+    font-size: 0.875rem;
 }
 
 /* Tabs */
@@ -1447,8 +1452,13 @@
 }
 
 @keyframes modal-fadein {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .modal-content {
@@ -1468,8 +1478,15 @@
 }
 
 @keyframes modal-slide {
-    from { transform: translateY(16px); opacity: 0; }
-    to   { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(16px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 .modal-content h4 {
@@ -1576,8 +1593,13 @@
     color: var(--text-primary);
 }
 
-.chart-stat-value.positive { color: #34d399; }
-.chart-stat-value.negative { color: #f87171; }
+.chart-stat-value.positive {
+    color: #34d399;
+}
+
+.chart-stat-value.negative {
+    color: #f87171;
+}
 
 .chart-btn {
     padding: 4px 10px;
@@ -1594,4 +1616,4 @@
 .chart-btn:hover {
     background: rgba(168, 85, 247, 0.22);
     border-color: rgba(168, 85, 247, 0.5);
-}
+}

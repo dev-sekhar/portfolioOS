@@ -1,6 +1,7 @@
 import pandas as pd
 import re
 from pathlib import Path
+from app.services.price_feed import resolve_symbol_candidates, _resolve_yf_symbol
 
 TRUSTED_INVESTORS = [
     "Ashish Kacholia",
@@ -74,6 +75,13 @@ def build_transaction_table(df, action):
     return pd.DataFrame(rows)
 
 
+def resolve_ticker(stock_name):
+    candidates = resolve_symbol_candidates(stock_name, market="india", limit=1, require_live_price=False)
+    if candidates:
+        return _resolve_yf_symbol(candidates[0]["symbol"], "india")
+    return ""
+
+
 def build_strategy(df):
     df['portfolio_value_cr'] = df['portfolio_value'].apply(parse_portfolio_value)
     buys = build_transaction_table(df, 'buy')
@@ -98,6 +106,7 @@ def build_strategy(df):
     grouped['raw_weight_pct'] = grouped['score'] / grouped['score'].sum() * 100
 
     moderate = grouped.copy().head(12)
+    moderate['yf_symbol'] = moderate['stock'].apply(resolve_ticker)
     moderate['target_weight_pct'] = moderate['raw_weight_pct'].clip(upper=8)
     moderate_total = moderate['target_weight_pct'].sum()
     if moderate_total > 80:
@@ -105,6 +114,7 @@ def build_strategy(df):
     cash_moderate = round(100 - moderate['target_weight_pct'].sum(), 2)
 
     high_risk = grouped[grouped['total_signal_pct'] >= 1].copy().head(10)
+    high_risk['yf_symbol'] = high_risk['stock'].apply(resolve_ticker)
     high_risk['target_weight_pct'] = high_risk['raw_weight_pct'].clip(upper=15)
     high_total = high_risk['target_weight_pct'].sum()
     if high_total > 80:

@@ -713,6 +713,7 @@ export default function App({ googleClientConfigured = false }) {
 
     setForm((prev) => ({ ...prev, stock_symbol: candidate.symbol }));
     setSymbolStatus("resolved");
+    setSymbolCandidates([]);
     setPriceStatus("idle");
     queuePriceFetch(candidate.symbol, form.market);
   };
@@ -1032,9 +1033,6 @@ export default function App({ googleClientConfigured = false }) {
           <div>
             <div>{authUser.name}</div>
             <small>{authUser.email}</small>
-            <small className="session-timer">
-              Auto sign-out (idle): {sessionCountdownText} ({sessionTimeoutMinutes}m)
-            </small>
           </div>
         </div>
         <nav className="side-nav-menu" aria-label="Main navigation">
