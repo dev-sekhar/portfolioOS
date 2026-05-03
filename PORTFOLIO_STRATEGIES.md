@@ -16,6 +16,13 @@ This document outlines the portfolio strategies available in the Shadow Portfoli
   - Individual stock target weights are capped at **15%**.
   - The total allocation for all selected stocks is scaled to a maximum of **80%**, leaving the remainder as cash (High Risk Cash Allocation).
 
+### Build Portfolio Strategy
+- **Description:** A goal-based automated allocation strategy that builds a diversified portfolio based on user-selected risk tolerance.
+- **Risk Profiles:**
+  - **Low Risk:** Allocates the portfolio across Core (50%), Defensive (40%), and Global (10%) assets. Prioritizes stability and downside protection.
+  - **Medium Risk:** Balances growth and stability by allocating across Core (40%), Growth (30%), Defensive (20%), and Global (10%) assets.
+  - **High Risk:** A growth-focused strategy that allocates heavily to Growth (60%), supported by Core (20%) and Global (20%) assets.
+
 ### Review Schedule
 A set of recommended periodic checks for reviewing the portfolio:
 - **Monthly light check:** Every 4 weeks (Purpose: Price drift, major news, thesis break check).
@@ -27,6 +34,12 @@ A set of recommended periodic checks for reviewing the portfolio:
 ---
 
 ## Glossary of Terms
+
+### Build Portfolio Buckets
+- **Core:** Foundation of the portfolio using broad-market index funds for stable, long-term growth with lower costs.
+- **Growth:** Focuses on high-growth sectors and mid-cap companies to capture capital appreciation in expanding markets.
+- **Defensive:** Low-volatility and value-oriented funds designed to provide stability and downside protection during market downturns.
+- **Global:** Provides geographic diversification across international markets to reduce dependency on a single country's economy.
 
 ### Overview Metrics
 - **Moderate Cash Allocation:** The recommended cash reserve percentage for the moderate-risk strategy, balancing growth with stability. It is calculated as 100% minus the sum of the target weights in the moderate strategy.
