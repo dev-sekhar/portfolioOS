@@ -24,7 +24,24 @@ export default function EodChart({ ownerEmail }) {
         setLoading(true);
         try {
             const res = await fetchEodPerformance(ownerEmail, startDate, endDate);
-            setData(res.data || []);
+            const rawData = res.data || [];
+            
+            // Filter out today's data if market is currently open (9:15 AM - 3:30 PM IST)
+            const now = new Date();
+            const istOffset = 330; // Minutes for UTC+5:30
+            const istTime = new Date(now.getTime() + (now.getTimezoneOffset() + istOffset) * 60000);
+            const hours = istTime.getHours();
+            const mins = istTime.getMinutes();
+            const totalMins = hours * 60 + mins;
+            const isMarketOpen = totalMins >= (9 * 60 + 15) && totalMins < (15 * 60 + 30) && istTime.getDay() >= 1 && istTime.getDay() <= 5;
+            
+            const todayStr = istTime.toISOString().split("T")[0];
+            const filtered = rawData.filter(item => {
+                if (item.date === todayStr) return !isMarketOpen;
+                return true;
+            });
+
+            setData(filtered);
         } catch (error) {
             console.error("Failed to load EOD performance", error);
         } finally {

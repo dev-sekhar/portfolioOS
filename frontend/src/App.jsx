@@ -1752,6 +1752,10 @@ export default function App({ googleClientConfigured = false }) {
                 <div style={{ display: 'grid', gap: '16px' }}>
                   <p>Name: {authUser?.name || "User"}</p>
                   <p>Portfolio created: {formattedPortfolioDate}</p>
+                  <div style={{ padding: '12px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <p style={{ fontWeight: '500', marginBottom: '4px' }}>Market Hours (NSE/BSE)</p>
+                    <p className="card-note">09:15 AM - 03:30 PM IST (Mon - Fri)</p>
+                  </div>
                 </div>
               )}
 
