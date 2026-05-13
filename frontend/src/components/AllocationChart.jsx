@@ -12,8 +12,8 @@ export default function AllocationChart({ data }) {
 
     return (
         <div className="allocation-chart-block">
-            <div className="allocation-chart-wrap">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="allocation-chart-wrap" style={{ width: "100%", height: 300, minHeight: "300px" }}>
+                <ResponsiveContainer width="99.9%" height={300}>
                     <PieChart>
                         <Pie
                             data={chartData}

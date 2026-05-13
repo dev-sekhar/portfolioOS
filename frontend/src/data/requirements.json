@@ -11,25 +11,31 @@
     "id": "BRD-2.1",
     "title": "Beginners Profile Guardrails",
     "category": "Risk Profiling",
-    "status": "Pending",
+    "status": "Implemented",
     "description": "Restricted to broad-market equity mutual funds, liquid ETFs, top-tier large-cap. Quarterly rebalancing.",
-    "files": []
+    "files": [
+      "frontend\\src\\components\\OnboardingQuestionnaire.jsx"
+    ]
   },
   {
     "id": "BRD-2.2",
     "title": "Retail Profile Guardrails",
     "category": "Risk Profiling",
-    "status": "Pending",
+    "status": "Implemented",
     "description": "Balanced access. Strict single-stock limits (max 10%). Weekly/bi-weekly rebalancing.",
-    "files": []
+    "files": [
+      "frontend\\src\\components\\OnboardingQuestionnaire.jsx"
+    ]
   },
   {
     "id": "BRD-2.3",
     "title": "HNI Profile Guardrails",
     "category": "Risk Profiling",
-    "status": "Pending",
+    "status": "Implemented",
     "description": "Full multi-asset access. Higher position concentration. Real-time/daily rebalancing.",
-    "files": []
+    "files": [
+      "frontend\\src\\components\\OnboardingQuestionnaire.jsx"
+    ]
   },
   {
     "id": "BRD-3.1",

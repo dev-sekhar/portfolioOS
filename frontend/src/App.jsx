@@ -24,6 +24,8 @@ import BulkDeals from "./components/BulkDeals";
 import EodChart from "./components/EodChart";
 import ShadowStrategy from "./components/ShadowStrategy";
 import RequirementsDashboard from "./components/RequirementsDashboard";
+import OnboardingQuestionnaire from "./components/OnboardingQuestionnaire";
+import QUESTIONS from "./data/onboardingQuestions.json";
 
 import Button from "./components/ui/Button";
 import Input from "./components/ui/Input";
@@ -55,16 +57,6 @@ const getLocalDateKey = () => {
 };
 
 export default function App({ googleClientConfigured = false }) {
-  const navItems = [
-    { id: "dashboard", label: "Dashboard" },
-    { id: "portfolio", label: "Portfolio" },
-    { id: "arbitrage", label: "Arbitrage" },
-    { id: "bulkdeals", label: "Bulk Deals" },
-    { id: "shadow", label: "Shadow Strategy" },
-    { id: "profile", label: "User Profile" },
-    { id: "requirements", label: "Requirements" }
-  ];
-
   const todayIso = new Date().toISOString();
   const todayDate = todayIso.slice(0, 10);
   const [form, setForm] = useState({
@@ -112,6 +104,11 @@ export default function App({ googleClientConfigured = false }) {
   const [addError, setAddError] = useState("");
   const [portfolioCreatedAt, setPortfolioCreatedAt] = useState(todayIso);
 
+  const [riskAnswers, setRiskAnswers] = useState(() => {
+    const raw = localStorage.getItem("riskAnswers");
+    return raw ? JSON.parse(raw) : null;
+  });
+
   // "idle" | "loading" | "fetched" | "error"
   const [priceStatus, setPriceStatus] = useState("idle");
   const debounceRef = useRef(null);
@@ -135,6 +132,40 @@ export default function App({ googleClientConfigured = false }) {
       return null;
     }
   });
+
+  const [adminLoginForm, setAdminLoginForm] = useState({ username: '', password: '' });
+  const [adminLoginError, setAdminLoginError] = useState('');
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const isAdmin = useMemo(() => authUser?.email === "admin@portfolio-os.local", [authUser]);
+  const isOnboardingIncomplete = useMemo(() => !isAdmin && !riskAnswers, [isAdmin, riskAnswers]);
+
+  useEffect(() => {
+    if (authUser && isOnboardingIncomplete && activeSection !== "onboarding") {
+      setActiveSection("onboarding");
+    }
+  }, [authUser, isOnboardingIncomplete, activeSection]);
+
+  const navItems = useMemo(() => {
+    const base = [
+      { id: "dashboard", label: "Dashboard" },
+      { id: "portfolio", label: "Portfolio" },
+      { id: "arbitrage", label: "Arbitrage" },
+      { id: "bulkdeals", label: "Bulk Deals" },
+      { id: "shadow", label: "Shadow Strategy" },
+      { id: "profile", label: "User Profile" },
+      { id: "onboarding", label: "Risk Onboarding" }
+    ];
+    if (isAdmin) {
+      base.push({ id: "requirements", label: "Requirements" });
+    }
+    return base;
+  }, [isAdmin]);
 
   const formattedPortfolioDate = new Date(portfolioCreatedAt).toLocaleDateString(undefined, {
     year: "numeric",
@@ -189,10 +220,7 @@ export default function App({ googleClientConfigured = false }) {
   const alertsSnoozed = alertsSnoozedUntilMs > Date.now();
 
   const healthCommentary = useMemo(() => {
-    if (!result?.allocation) {
-      return "Health score is calculated after allocation analysis is available.";
-    }
-
+    if (!result?.allocation) return "Health score is calculated after allocation analysis is available.";
     const allocation = result.allocation;
     const checks = [
       { bucket: "global", min: 0.1, label: "global diversification" },
@@ -201,43 +229,24 @@ export default function App({ googleClientConfigured = false }) {
       { bucket: "core", min: 0.2, label: "core stability" },
       { bucket: "cash", min: 0.03, label: "cash buffer" },
     ];
-
-    const met = checks
-      .filter(({ bucket, min }) => (allocation[bucket] || 0) > min)
-      .map(({ label }) => label);
-    const missing = checks
-      .filter(({ bucket, min }) => (allocation[bucket] || 0) <= min)
-      .map(({ label }) => label);
-
-    if (missing.length === 0) {
-      return "Strong diversification across core, defensive, global, hedge, and cash checks.";
-    }
-
+    const met = checks.filter(({ bucket, min }) => (allocation[bucket] || 0) > min).map(({ label }) => label);
+    const missing = checks.filter(({ bucket, min }) => (allocation[bucket] || 0) <= min).map(({ label }) => label);
+    if (missing.length === 0) return "Strong diversification across core, defensive, global, hedge, and cash checks.";
     const metText = met.length > 0 ? `Met: ${met.slice(0, 2).join(", ")}. ` : "";
     return `${metText}Low score is mainly due to missing ${missing.slice(0, 2).join(" and ")}.`;
-  }, [result]);
+  }, [result?.allocation]);
 
   const targetRiskCommentary = useMemo(() => {
     const riskKey = (result?.risk || targetRisk || "medium").toLowerCase();
     const target = RISK_TARGETS[riskKey] || RISK_TARGETS.medium;
     const allocation = result?.allocation || {};
-
     const gaps = Object.entries(target)
-      .map(([bucket, pct]) => ({
-        bucket,
-        gap: (pct - (allocation[bucket] || 0)) * 100,
-      }))
+      .map(([bucket, pct]) => ({ bucket, gap: (pct - (allocation[bucket] || 0)) * 100 }))
       .sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap));
-
-    const topGaps = gaps
-      .filter((item) => Math.abs(item.gap) >= 3)
-      .slice(0, 2)
-      .map((item) => `${item.bucket} ${item.gap > 0 ? "under" : "over"} by ${Math.abs(item.gap).toFixed(0)}%`)
-      .join(", ");
-
+    const topGaps = gaps.filter((item) => Math.abs(item.gap) >= 3).slice(0, 2).map((item) => `${item.bucket} ${item.gap > 0 ? "under" : "over"} by ${Math.abs(item.gap).toFixed(0)}%`).join(", ");
     const base = `${riskKey} targets core ${(target.core || 0) * 100}%, growth ${(target.growth || 0) * 100}%, global ${(target.global || 0) * 100}%, hedge ${(target.hedge || 0) * 100}%, cash ${(target.cash || 0) * 100}%.`;
     return topGaps ? `${base} Biggest gaps: ${topGaps}.` : `${base} Current mix is close to target.`;
-  }, [result, targetRisk]);
+  }, [result?.risk, result?.allocation, targetRisk]);
 
   const rebalanceExplanation = useMemo(() => {
     if (!result?.rebalance) {
@@ -1046,6 +1055,24 @@ export default function App({ googleClientConfigured = false }) {
     setAuthUser(null);
   };
 
+  const handleAdminLogin = (e) => {
+    e.preventDefault();
+    if (adminLoginForm.username === "admin" && adminLoginForm.password === "password123") {
+      const adminUser = {
+        name: "Administrator",
+        email: "admin@portfolio-os.local",
+        picture: "",
+      };
+      setAuthUser(adminUser);
+      localStorage.setItem("googleAuthUser", JSON.stringify(adminUser));
+      setAdminLoginError('');
+      setActiveSection("requirements");
+    } else {
+      setAdminLoginError('Invalid admin credentials.');
+      showToast('Invalid admin credentials.', 'error');
+    }
+  };
+
   if (!authUser) {
     return (
       <div className="auth-screen">
@@ -1055,7 +1082,9 @@ export default function App({ googleClientConfigured = false }) {
           {googleClientConfigured ? (
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
-              onError={() => {}}
+              onError={() => {
+                showToast("Google SSO failed. Please use Developer Access or check your Client ID configuration.", "error");
+              }}
               theme="filled_black"
               size="large"
               shape="pill"
@@ -1067,7 +1096,72 @@ export default function App({ googleClientConfigured = false }) {
               Google SSO is not configured. Set `VITE_GOOGLE_CLIENT_ID` in `frontend/.env`.
             </p>
           )}
+
+          <div style={{ marginTop: '40px', borderTop: '1px solid var(--border-subtle)', paddingTop: '20px' }}>
+            <p className="card-note" style={{ marginBottom: '16px' }}>Developer Access</p>
+            <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <Input 
+                placeholder="Username" 
+                value={adminLoginForm.username} 
+                onChange={e => setAdminLoginForm({...adminLoginForm, username: e.target.value})}
+              />
+              <Input 
+                type="password" 
+                placeholder="Password" 
+                value={adminLoginForm.password} 
+                onChange={e => setAdminLoginForm({...adminLoginForm, password: e.target.value})}
+              />
+              <Button type="submit" variant="outline">Admin Login</Button>
+            </form>
+            {adminLoginError && <p className="arb-error" style={{ marginTop: '10px' }}>{adminLoginError}</p>}
+          </div>
         </div>
+      </div>
+    );
+  }
+
+  // Admin isolation logic
+  if (isAdmin) {
+    return (
+      <div className="layout-shell">
+        <aside className="side-nav">
+          <div className="side-nav-brand">Portfolio OS Admin</div>
+          <nav className="side-nav-menu" aria-label="Main navigation">
+            <button type="button" className="side-nav-item is-active">
+              Requirements
+            </button>
+          </nav>
+          
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px' }}>
+              <div 
+                className={`theme-toggle ${theme === 'dark' ? 'dark' : ''}`}
+                onClick={() => {
+                  const newTheme = theme === "dark" ? "light" : "dark";
+                  setTheme(newTheme);
+                  updateSettings(normalizedOwnerEmail, { theme: newTheme });
+                }}
+              >
+                <div className="theme-toggle-knob">
+                  {theme === 'light' ? '☾' : '☼'}
+                </div>
+              </div>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500 }}>
+                {theme === 'light' ? 'Light Mode' : 'Dark Mode'}
+              </span>
+            </div>
+
+            <button type="button" className="side-nav-item side-nav-logout" onClick={handleLogout}>
+              Sign Out
+            </button>
+          </div>
+        </aside>
+        <main className="app-shell">
+          <h1 className="app-title">Admin Dashboard</h1>
+          <section id="requirements-section" className="app-section">
+            <RequirementsDashboard />
+          </section>
+        </main>
       </div>
     );
   }
@@ -1083,17 +1177,24 @@ export default function App({ googleClientConfigured = false }) {
             <small>{authUser.email}</small>
           </div>
         </div>
+
         <nav className="side-nav-menu" aria-label="Main navigation">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`side-nav-item ${activeSection === item.id ? "is-active" : ""}`}
-              onClick={() => goToSection(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
+          {isOnboardingIncomplete ? (
+            <div style={{ padding: '16px', color: 'var(--brand-orange)', fontSize: '0.9rem', fontWeight: '500' }}>
+              Complete Risk Profile to unlock navigation
+            </div>
+          ) : (
+            navItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`side-nav-item ${activeSection === item.id ? "is-active" : ""}`}
+                onClick={() => goToSection(item.id)}
+              >
+                {item.label}
+              </button>
+            ))
+          )}
         </nav>
         
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1628,6 +1729,9 @@ export default function App({ googleClientConfigured = false }) {
                         const newList = [...currentList, investorName].join(', ');
                         setShadowInvestorWatchlist(newList);
                         updateSettings(normalizedOwnerEmail, { shadow_investor_watchlist: newList });
+                        showToast(`Added ${investorName} to shadow watchlist`);
+                    } else {
+                        showToast(`${investorName} is already in your watchlist`, "info");
                     }
                 }}
             />
@@ -1639,6 +1743,7 @@ export default function App({ googleClientConfigured = false }) {
             <Card title="User Profile" subtitle="Local settings and preferences">
               <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px', flexWrap: 'wrap' }}>
                 <Button variant={activeProfileTab === "general" ? "primary" : "outline"} onClick={() => setActiveProfileTab("general")}>General Settings</Button>
+                <Button variant={activeProfileTab === "risk" ? "primary" : "outline"} onClick={() => setActiveProfileTab("risk")}>Risk Profile</Button>
                 <Button variant={activeProfileTab === "arbitrage" ? "primary" : "outline"} onClick={() => setActiveProfileTab("arbitrage")}>Arbitrage Settings</Button>
                 <Button variant={activeProfileTab === "shadow" ? "primary" : "outline"} onClick={() => setActiveProfileTab("shadow")}>Shadow Strategy Settings</Button>
               </div>
@@ -1647,7 +1752,43 @@ export default function App({ googleClientConfigured = false }) {
                 <div style={{ display: 'grid', gap: '16px' }}>
                   <p>Name: {authUser?.name || "User"}</p>
                   <p>Portfolio created: {formattedPortfolioDate}</p>
-                  <p>Preferred risk profile: {targetRisk}</p>
+                </div>
+              )}
+
+              {activeProfileTab === "risk" && (
+                <div style={{ display: 'grid', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontWeight: '500', marginBottom: '8px' }}>Preferred risk profile: <span style={{ textTransform: 'capitalize', color: 'var(--brand-orange)' }}>{targetRisk}</span></p>
+                      
+                      {riskAnswers && (
+                        <div style={{ marginBottom: '16px', borderTop: '1px solid var(--border-subtle)', paddingTop: '12px' }}>
+                          <p className="card-note" style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--text-primary)' }}>Your Assessment Responses:</p>
+                          <div style={{ display: 'grid', gap: '8px' }}>
+                            {QUESTIONS.map(q => {
+                              const score = riskAnswers[q.id];
+                              const option = q.options.find(opt => opt.score === score);
+                              return (
+                                <div key={q.id} style={{ fontSize: '13px' }}>
+                                  <span style={{ color: 'var(--text-secondary)' }}>{q.text}: </span>
+                                  <span style={{ fontWeight: '500' }}>{option ? option.label : "Not answered"}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <p className="card-note">
+                        Review Schedule: {
+                          targetRisk === "high" ? `Quarterly (Next: ${new Date(new Date(portfolioCreatedAt || Date.now()).setMonth(new Date(portfolioCreatedAt || Date.now()).getMonth() + 3)).toLocaleDateString()})` :
+                          targetRisk === "medium" ? `Semi-Annual (Next: ${new Date(new Date(portfolioCreatedAt || Date.now()).setMonth(new Date(portfolioCreatedAt || Date.now()).getMonth() + 6)).toLocaleDateString()})` :
+                          `Annual (Next: ${new Date(new Date(portfolioCreatedAt || Date.now()).setFullYear(new Date(portfolioCreatedAt || Date.now()).getFullYear() + 1)).toLocaleDateString()})`
+                        }
+                      </p>
+                    </div>
+                    <Button variant="outline" onClick={() => goToSection("onboarding")} style={{ alignSelf: 'flex-start' }}>Update Profile</Button>
+                  </div>
                 </div>
               )}
               
@@ -1895,12 +2036,47 @@ export default function App({ googleClientConfigured = false }) {
           </div>
         )}
 
-        {activeSection === "requirements" && (
-          <section id="requirements-section" className="app-section">
-            <RequirementsDashboard />
+        {activeSection === "onboarding" && (
+          <section id="onboarding-section" className="app-section">
+            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+              <OnboardingQuestionnaire 
+                onComplete={(result) => {
+                  alert(`Profile saved: ${result.persona} (${result.risk} risk)`);
+                  setTargetRisk(result.risk.toLowerCase());
+                  if (result.answers) {
+                    setRiskAnswers(result.answers);
+                    localStorage.setItem("riskAnswers", JSON.stringify(result.answers));
+                  }
+                  goToSection("profile");
+                  setActiveProfileTab("risk");
+                }} 
+              />
+            </div>
           </section>
         )}
       </main>
+      {toast && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '12px 24px',
+            borderRadius: '8px',
+            backgroundColor: toast.type === 'success' ? '#10b981' : toast.type === 'info' ? '#3b82f6' : '#ef4444',
+            color: 'white',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 9999,
+            fontSize: '0.9rem',
+            fontWeight: '500',
+            pointerEvents: 'none',
+            animation: 'fadeInOut 3s forwards'
+          }}
+        >
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }

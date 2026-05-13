@@ -1,0 +1,29 @@
+[
+  {
+    "id": "experience",
+    "text": "How much experience do you have with capital markets?",
+    "options": [
+      { "label": "I am completely new to investing", "score": 1, "persona": "Beginner" },
+      { "label": "I have some experience trading stocks and mutual funds", "score": 2, "persona": "Retail" },
+      { "label": "I am a sophisticated investor with multi-asset experience", "score": 3, "persona": "HNI" }
+    ]
+  },
+  {
+    "id": "capital",
+    "text": "What is your primary goal and capital size?",
+    "options": [
+      { "label": "Start small and preserve capital", "score": 1, "persona": "Beginner" },
+      { "label": "Steady long-term growth to beat benchmarks like Nifty 50", "score": 2, "persona": "Retail" },
+      { "label": "Maximize absolute returns with a large capital base", "score": 3, "persona": "HNI" }
+    ]
+  },
+  {
+    "id": "assets",
+    "text": "Which assets do you want to include in your portfolio?",
+    "options": [
+      { "label": "Broad-market mutual funds and liquid ETFs only", "score": 1, "persona": "Beginner" },
+      { "label": "Direct equities, diversified funds, and corporate bonds", "score": 2, "persona": "Retail" },
+      { "label": "Full multi-asset access (Direct Stocks, Crypto, Bonds, Sector Funds)", "score": 3, "persona": "HNI" }
+    ]
+  }
+]

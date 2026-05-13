@@ -60,13 +60,13 @@ export default function EodChart({ ownerEmail }) {
                 </Button>
             </div>
             
-            <div style={{ width: "100%", height: 300 }}>
+            <div style={{ width: "100%", height: 300, minHeight: "300px", minWidth: "0" }}>
                 {data.length === 0 ? (
                     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "var(--text-tertiary)" }}>
                         {loading ? "Loading chart data..." : "No data available for the selected period"}
                     </div>
                 ) : (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="99.9%" height={300}>
                         <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
