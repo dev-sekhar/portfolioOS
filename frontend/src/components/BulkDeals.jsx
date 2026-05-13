@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { fetchBulkDeals } from "../services/bulkDeals";
 import Button from "./ui/Button";
 import DatePicker from "./ui/DatePicker";
-import Input from "./ui/Input";
+import Table from "./ui/Table";
 
 const getLastTradingDate = () => {
     const today = new Date();
@@ -35,7 +35,11 @@ const bulkDealsHeaderMapping = {
 };
 
 const getHeaderLabel = (fieldName) => {
-    return bulkDealsHeaderMapping[fieldName] || fieldName
+    const cleanField = fieldName.replace(/[\uFEFF\u200B"']/g, '').trim();
+    if (bulkDealsHeaderMapping[cleanField]) {
+        return bulkDealsHeaderMapping[cleanField];
+    }
+    return cleanField
         .split('_')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
@@ -115,26 +119,22 @@ export default function BulkDeals() {
             )}
             
             {data.length > 0 && (
-                <div style={{ overflowX: 'auto', maxHeight: '500px', border: '1px solid var(--border-subtle)', borderRadius: '8px' }}>
-                    <table className="portfolio-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead style={{ background: 'rgba(255, 255, 255, 0.05)', position: 'sticky', top: 0, zIndex: 10 }}>
-                            <tr>
-                                {Object.keys(data[0]).map((k) => (
-                                    <th key={k} style={{ padding: '10px 8px', color: '#ffffff', textAlign: 'left', whiteSpace: 'nowrap', fontSize: '0.875rem', fontWeight: '600' }}>{getHeaderLabel(k)}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {data.map((row, i) => (
-                                <tr key={i}>
-                                    {Object.values(row).map((v, j) => (
-                                        <td key={j} style={{ padding: '10px 8px', color: '#ffffff', whiteSpace: 'nowrap', fontSize: '0.875rem' }}>{String(v)}</td>
-                                    ))}
-                                </tr>
+                <Table 
+                    data={data}
+                    columns={Object.keys(data[0]).map(k => ({
+                        key: k,
+                        label: getHeaderLabel(k)
+                    }))}
+                    renderRow={(row, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            {Object.values(row).map((v, j) => (
+                                <td key={j} style={{ padding: '10px 8px', color: 'var(--text-primary)', whiteSpace: 'nowrap', fontSize: '0.875rem' }}>
+                                    {String(v)}
+                                </td>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
+                        </tr>
+                    )}
+                />
             )}
             {fetched && data.length === 0 && !error && <p style={{ color: 'var(--text-secondary)', marginTop: '16px' }}>No deals found for the selected date range.</p>}
         </div>

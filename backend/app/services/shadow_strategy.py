@@ -82,7 +82,7 @@ def resolve_ticker(stock_name):
     return ""
 
 
-def build_strategy(df):
+def build_strategy(df, moderate_limit=12, high_risk_limit=10):
     df['portfolio_value_cr'] = df['portfolio_value'].apply(parse_portfolio_value)
     buys = build_transaction_table(df, 'buy')
     sells = build_transaction_table(df, 'sell')
@@ -105,7 +105,7 @@ def build_strategy(df):
     grouped = grouped.sort_values(['investors', 'total_signal_pct', 'est_signal_value_cr'], ascending=False)
     grouped['raw_weight_pct'] = grouped['score'] / grouped['score'].sum() * 100
 
-    moderate = grouped.copy().head(12)
+    moderate = grouped.copy().head(moderate_limit)
     moderate['yf_symbol'] = moderate['stock'].apply(resolve_ticker)
     moderate['target_weight_pct'] = moderate['raw_weight_pct'].clip(upper=8)
     moderate_total = moderate['target_weight_pct'].sum()
@@ -113,7 +113,7 @@ def build_strategy(df):
         moderate['target_weight_pct'] = moderate['target_weight_pct'] / moderate_total * 80
     cash_moderate = round(100 - moderate['target_weight_pct'].sum(), 2)
 
-    high_risk = grouped[grouped['total_signal_pct'] >= 1].copy().head(10)
+    high_risk = grouped[grouped['total_signal_pct'] >= 1].copy().head(high_risk_limit)
     high_risk['yf_symbol'] = high_risk['stock'].apply(resolve_ticker)
     high_risk['target_weight_pct'] = high_risk['raw_weight_pct'].clip(upper=15)
     high_total = high_risk['target_weight_pct'].sum()

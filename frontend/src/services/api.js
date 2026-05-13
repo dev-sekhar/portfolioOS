@@ -60,14 +60,21 @@ export const fetchEodPerformance = (ownerEmail, startDate, endDate) => {
     return axios.get(`${API}/eod-performance`, { params });
 };
 
-export const generateShadowStrategy = (file) => {
+export const generateShadowStrategy = (file, moderateLimit = 12, highRiskLimit = 10) => {
     const formData = new FormData();
     formData.append("file", file);
     return axios.post(`${API}/api/shadow-strategy`, formData, {
-        headers: { "Content-Type": "multipart/form-data" }
+        headers: { "Content-Type": "multipart/form-data" },
+        params: { moderate_limit: moderateLimit, high_risk_limit: highRiskLimit }
     });
 };
 
-export const autoFetchShadowStrategy = () => {
-    return axios.post(`${API}/api/shadow-strategy/auto-fetch`);
+export const autoFetchShadowStrategy = (moderateLimit = 12, highRiskLimit = 10) => {
+    return axios.post(`${API}/api/shadow-strategy/auto-fetch`, null, {
+        params: { moderate_limit: moderateLimit, high_risk_limit: highRiskLimit }
+    });
+};
+
+export const optimizeShadowWeights = (items, signalThreshold = 20) => {
+    return axios.post(`${API}/api/shadow-strategy/optimize-weights`, { items, signal_threshold: signalThreshold });
 };

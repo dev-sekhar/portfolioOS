@@ -62,6 +62,25 @@ def _migrate_sqlite_portfolio_table():
 Base.metadata.create_all(bind=engine)
 _migrate_sqlite_portfolio_table()
 
+def _migrate_sqlite_user_settings_table():
+    if not str(engine.url).startswith("sqlite"):
+        return
+
+    with engine.begin() as conn:
+        try:
+            columns = {
+                row[1]
+                for row in conn.execute(text("PRAGMA table_info(user_settings)"))
+            }
+            if "shadow_moderate_limit" not in columns:
+                conn.execute(text("ALTER TABLE user_settings ADD COLUMN shadow_moderate_limit INTEGER DEFAULT 12"))
+            if "shadow_high_risk_limit" not in columns:
+                conn.execute(text("ALTER TABLE user_settings ADD COLUMN shadow_high_risk_limit INTEGER DEFAULT 10"))
+        except Exception:
+            pass
+
+_migrate_sqlite_user_settings_table()
+
 app = FastAPI(title="Portfolio OS API")
 
 app.add_middleware(

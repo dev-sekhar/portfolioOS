@@ -1,16 +1,31 @@
-import { Input as ChakraInput } from "@chakra-ui/react";
+import { TextField } from "@mui/material";
 
-export default function DatePicker({ ...props }) {
+export default function DatePicker({ sx, ...props }) {
   return (
-    <ChakraInput 
-      type="date" 
-      size="sm"
+    <TextField
+      type="date"
+      size="small"
       sx={{
-        background: 'var(--bg-surface)',
-        borderColor: 'var(--border-strong)',
-        color: 'var(--text-primary)',
-        _placeholder: { color: 'var(--text-tertiary)' },
-        _focus: { borderColor: 'var(--accent-base)', boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)' }
+        '& .MuiInputBase-root': {
+          background: 'var(--bg-input)',
+          color: 'var(--text-input)',
+          borderRadius: '8px',
+          minHeight: '40px',
+          fontSize: '0.9rem',
+          '& fieldset': {
+            borderColor: 'var(--border-strong)',
+          },
+          '&:hover fieldset': {
+            borderColor: 'var(--accent-base)',
+          },
+          '&.Mui-focused fieldset': {
+            borderColor: 'var(--accent-base)',
+          },
+        },
+        '& .MuiInputBase-input': {
+          padding: '8px 12px',
+        },
+        ...sx
       }}
       {...props} 
     />

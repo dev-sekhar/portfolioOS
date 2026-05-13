@@ -62,7 +62,7 @@ export default function EodChart({ ownerEmail }) {
             
             <div style={{ width: "100%", height: 300 }}>
                 {data.length === 0 ? (
-                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#666" }}>
+                    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "var(--text-tertiary)" }}>
                         {loading ? "Loading chart data..." : "No data available for the selected period"}
                     </div>
                 ) : (
@@ -76,18 +76,25 @@ export default function EodChart({ ownerEmail }) {
                             </defs>
                             <XAxis 
                                 dataKey="date" 
-                                tick={{ fontSize: 12 }} 
+                                tick={{ fontSize: 12, fill: "var(--text-secondary)" }} 
                                 tickFormatter={(val) => val.slice(5)} 
                             />
                             <YAxis 
                                 domain={['auto', 'auto']} 
-                                tick={{ fontSize: 12 }} 
+                                tick={{ fontSize: 12, fill: "var(--text-secondary)" }} 
                                 tickFormatter={(val) => `₹${(val / 1000).toFixed(0)}k`} 
                             />
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-subtle)" />
                             <Tooltip 
                                 formatter={(value) => [`₹${value.toLocaleString()}`, "Value"]}
-                                labelStyle={{ color: 'black' }}
+                                contentStyle={{ 
+                                    backgroundColor: 'var(--bg-surface-elevated)', 
+                                    borderColor: 'var(--border-subtle)',
+                                    borderRadius: '8px',
+                                    color: 'var(--text-primary)'
+                                }}
+                                itemStyle={{ color: 'var(--text-primary)' }}
+                                labelStyle={{ color: 'var(--text-secondary)' }}
                             />
                             <Area 
                                 type="monotone" 

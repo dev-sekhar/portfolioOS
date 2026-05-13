@@ -17,9 +17,11 @@
     height: 100vh;
     padding: 24px 16px;
     border-right: 1px solid var(--border-subtle);
-    background: linear-gradient(180deg, rgba(11, 11, 14, 0.95), rgba(18, 18, 23, 0.95));
+    background: var(--nav-bg);
     color: var(--text-primary);
     backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
 }
 
 .side-nav-brand {
@@ -202,16 +204,10 @@
     align-self: flex-end;
 }
 
-.input-row input,
-.input-row select,
-.wizard-controls input,
-.wizard-controls select {
-    background: var(--bg-surface-elevated);
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    color: var(--text-primary);
-    padding: 11px 12px;
-    min-height: 44px;
+/* Native elements now handled via MUI components in Input.jsx, Select.jsx etc */
+.input-row input:not([class*="Mui"]),
+.input-row select:not([class*="Mui"]) {
+    /* Keep only minimal styles for truly native elements if any remain */
 }
 
 .input-row input:focus,
@@ -377,12 +373,12 @@
 }
 
 .portfolio-table th {
-    color: #ffffff !important;
+    color: var(--text-primary) !important;
     font-size: 0.86rem;
 }
 
 .portfolio-table td {
-    color: #ffffff !important;
+    color: var(--text-primary) !important;
 }
 
 .portfolio-row--group td {
@@ -420,12 +416,12 @@
     text-align: left;
     border-bottom: 1px solid var(--border-subtle);
     white-space: nowrap;
-    color: #ffffff !important;
+    color: var(--text-primary) !important;
 }
 
 .txn-table th {
     font-size: 0.78rem;
-    color: #ffffff !important;
+    color: var(--text-primary) !important;
 }
 
 .pl-positive {
@@ -464,7 +460,7 @@
 
 .stock-meta {
     text-transform: capitalize;
-    color: #ffffff !important;
+    color: var(--text-secondary) !important;
 }
 
 .app-section p,
@@ -508,33 +504,33 @@
 }
 
 .card-overview {
-    background: linear-gradient(145deg, rgba(30, 41, 59, 0.78), rgba(17, 24, 39, 0.82));
-    border-color: rgba(59, 130, 246, 0.35) !important;
+    background: var(--bg-card-overview);
+    border-color: var(--border-card-overview) !important;
 }
 
 .card-allocation {
-    background: linear-gradient(145deg, rgba(17, 56, 62, 0.78), rgba(8, 37, 43, 0.84));
-    border-color: rgba(20, 184, 166, 0.4) !important;
+    background: var(--bg-card-allocation);
+    border-color: var(--border-card-allocation) !important;
 }
 
 .card-controls {
-    background: linear-gradient(145deg, rgba(45, 24, 65, 0.78), rgba(22, 16, 40, 0.84));
-    border-color: rgba(168, 85, 247, 0.45) !important;
+    background: var(--bg-card-controls);
+    border-color: var(--border-card-controls) !important;
 }
 
 .card-rebalance {
-    background: linear-gradient(145deg, rgba(55, 31, 31, 0.78), rgba(30, 19, 19, 0.84));
-    border-color: rgba(244, 114, 114, 0.4) !important;
+    background: var(--bg-card-rebalance);
+    border-color: var(--border-card-rebalance) !important;
 }
 
 .card-projection {
-    background: linear-gradient(145deg, rgba(44, 34, 18, 0.78), rgba(29, 23, 12, 0.84));
-    border-color: rgba(251, 191, 36, 0.45) !important;
+    background: var(--bg-card-projection);
+    border-color: var(--border-card-projection) !important;
 }
 
 .card-risk {
-    background: linear-gradient(145deg, rgba(21, 29, 55, 0.78), rgba(13, 18, 35, 0.84));
-    border-color: rgba(96, 165, 250, 0.42) !important;
+    background: var(--bg-card-risk);
+    border-color: var(--border-card-risk) !important;
 }
 
 .card-overview p,
@@ -549,7 +545,7 @@
 .card-rebalance div,
 .card-projection div,
 .card-risk div {
-    color: #e7e9f2;
+    color: var(--text-primary);
 }
 
 .card-overview .card-note,
@@ -564,7 +560,7 @@
 .card-rebalance .control-hint,
 .card-projection .control-hint,
 .card-risk .control-hint {
-    color: #cfd3e6;
+    color: var(--text-secondary);
 }
 
 .card-overview h2,
@@ -573,7 +569,7 @@
 .card-rebalance h2,
 .card-projection h2,
 .card-risk h2 {
-    color: #ffffff;
+    color: var(--text-primary);
 }
 
 .controls-grid {
@@ -1083,6 +1079,48 @@
 .tab-button:hover {
     color: var(--text-primary);
     background: rgba(255, 255, 255, 0.05);
+}
+
+.arb-global-alert-dismiss:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.theme-toggle {
+    width: 60px;
+    height: 30px;
+    border-radius: 999px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-strong);
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.theme-toggle.dark {
+    background: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.theme-toggle-knob {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    top: 3px;
+    left: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    transition: transform 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    color: #0f172a;
+}
+
+.theme-toggle.dark .theme-toggle-knob {
+    transform: translateX(28px);
 }
 
 .tab-button.is-active {

@@ -27,6 +27,11 @@ from pydantic import BaseModel
 
 class SettingsUpdate(BaseModel):
     arbitrage_watchlist: str | None = None
+    shadow_moderate_limit: int | None = 12
+    shadow_high_risk_limit: int | None = 10
+    shadow_signal_threshold: int | None = 20
+    shadow_investor_watchlist: str | None = None
+    theme: str | None = "dark"
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -271,8 +276,15 @@ def get_history(symbol: str, period: str = "5y"):
 def get_settings(owner_email: str, db: Session = Depends(get_db)):
     settings = db.query(UserSettings).filter(UserSettings.owner_email == owner_email.strip().lower()).first()
     if not settings:
-        return {"arbitrage_watchlist": ""}
-    return {"arbitrage_watchlist": settings.arbitrage_watchlist or ""}
+        return {"arbitrage_watchlist": "", "shadow_moderate_limit": 12, "shadow_high_risk_limit": 10, "shadow_signal_threshold": 20, "shadow_investor_watchlist": "", "theme": "dark"}
+    return {
+        "arbitrage_watchlist": settings.arbitrage_watchlist or "",
+        "shadow_moderate_limit": settings.shadow_moderate_limit if settings.shadow_moderate_limit is not None else 12,
+        "shadow_high_risk_limit": settings.shadow_high_risk_limit if settings.shadow_high_risk_limit is not None else 10,
+        "shadow_signal_threshold": settings.shadow_signal_threshold if settings.shadow_signal_threshold is not None else 20,
+        "shadow_investor_watchlist": settings.shadow_investor_watchlist or "",
+        "theme": settings.theme or "dark"
+    }
 
 
 @router.post("/settings")
@@ -280,10 +292,29 @@ def update_settings(owner_email: str, data: SettingsUpdate, db: Session = Depend
     email = owner_email.strip().lower()
     settings = db.query(UserSettings).filter(UserSettings.owner_email == email).first()
     if not settings:
-        settings = UserSettings(owner_email=email, arbitrage_watchlist=data.arbitrage_watchlist)
+        settings = UserSettings(
+            owner_email=email, 
+            arbitrage_watchlist=data.arbitrage_watchlist,
+            shadow_moderate_limit=data.shadow_moderate_limit,
+            shadow_high_risk_limit=data.shadow_high_risk_limit,
+            shadow_signal_threshold=data.shadow_signal_threshold,
+            shadow_investor_watchlist=data.shadow_investor_watchlist,
+            theme=data.theme
+        )
         db.add(settings)
     else:
-        settings.arbitrage_watchlist = data.arbitrage_watchlist
+        if data.arbitrage_watchlist is not None:
+            settings.arbitrage_watchlist = data.arbitrage_watchlist
+        if data.shadow_moderate_limit is not None:
+            settings.shadow_moderate_limit = data.shadow_moderate_limit
+        if data.shadow_high_risk_limit is not None:
+            settings.shadow_high_risk_limit = data.shadow_high_risk_limit
+        if data.shadow_signal_threshold is not None:
+            settings.shadow_signal_threshold = data.shadow_signal_threshold
+        if data.shadow_investor_watchlist is not None:
+            settings.shadow_investor_watchlist = data.shadow_investor_watchlist
+        if data.theme is not None:
+            settings.theme = data.theme
     db.commit()
     return {"status": "ok"}
 

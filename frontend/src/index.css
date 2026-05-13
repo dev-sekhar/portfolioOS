@@ -10,6 +10,8 @@
   --text-tertiary: #a9abb8;
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.15);
+  --bg-input: #ffffff;
+  --text-input: #000000;
   --accent-base: #3b82f6;
   --accent-secondary: #a855f7;
   --accent-tertiary: #ec4899;
@@ -18,8 +20,53 @@
   --shadow-glow: 0 0 24px rgba(168, 85, 247, 0.28);
   --shadow-card: 0 12px 28px rgba(0, 0, 0, 0.42);
   --glass-bg: rgba(18, 18, 23, 0.7);
+  --nav-bg: linear-gradient(180deg, rgba(11, 11, 14, 0.95), rgba(18, 18, 23, 0.95));
   --font-primary: "Inter", "Segoe UI", sans-serif;
   --font-display: "Outfit", "Segoe UI", sans-serif;
+  --bg-card-overview: linear-gradient(145deg, rgba(30, 41, 59, 0.78), rgba(17, 24, 39, 0.82));
+  --bg-card-allocation: linear-gradient(145deg, rgba(17, 56, 62, 0.78), rgba(8, 37, 43, 0.84));
+  --bg-card-controls: linear-gradient(145deg, rgba(45, 24, 65, 0.78), rgba(22, 16, 40, 0.84));
+  --bg-card-rebalance: linear-gradient(145deg, rgba(55, 31, 31, 0.78), rgba(30, 19, 19, 0.84));
+  --bg-card-projection: linear-gradient(145deg, rgba(44, 34, 18, 0.78), rgba(29, 23, 12, 0.84));
+  --bg-card-risk: linear-gradient(145deg, rgba(21, 29, 55, 0.78), rgba(13, 18, 35, 0.84));
+
+  --border-card-overview: rgba(59, 130, 246, 0.35);
+  --border-card-allocation: rgba(20, 184, 166, 0.4);
+  --border-card-controls: rgba(168, 85, 247, 0.45);
+  --border-card-rebalance: rgba(244, 114, 114, 0.4);
+  --border-card-projection: rgba(251, 191, 36, 0.45);
+  --border-card-risk: rgba(96, 165, 250, 0.42);
+}
+
+[data-theme="light"] {
+  --bg-root: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f1f5f9;
+  --bg-surface-elevated: #ffffff;
+  --text-primary: #263238;
+  --text-secondary: #455a64;
+  --text-tertiary: #78909c;
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --bg-input: #ffffff;
+  --text-input: #000000;
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --nav-bg: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(241, 245, 249, 0.95));
+  --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.08);
+
+  --bg-card-overview: linear-gradient(145deg, #f0f7ff, #dbeafe);
+  --bg-card-allocation: linear-gradient(145deg, #f0fdfa, #ccfbf1);
+  --bg-card-controls: linear-gradient(145deg, #fdf4ff, #fae8ff);
+  --bg-card-rebalance: linear-gradient(145deg, #fef2f2, #fee2e2);
+  --bg-card-projection: linear-gradient(145deg, #fffbeb, #fef3c7);
+  --bg-card-risk: linear-gradient(145deg, #f0f9ff, #e0f2fe);
+
+  --border-card-overview: rgba(59, 130, 246, 0.15);
+  --border-card-allocation: rgba(20, 184, 166, 0.15);
+  --border-card-controls: rgba(168, 85, 247, 0.15);
+  --border-card-rebalance: rgba(244, 114, 114, 0.15);
+  --border-card-projection: rgba(251, 191, 36, 0.15);
+  --border-card-risk: rgba(96, 165, 250, 0.15);
 }
 
 body {

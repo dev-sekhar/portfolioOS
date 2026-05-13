@@ -1,9 +1,11 @@
-import { Button as ChakraButton } from "@chakra-ui/react";
+import { Button as MUIButton } from "@mui/material";
 
-export default function Button({ children, ...props }) {
+export default function Button({ children, variant = "contained", ...props }) {
+  // MUI variant defaults to "contained", we handle "outline" -> "outlined"
+  const muiVariant = variant === "outline" ? "outlined" : variant;
   return (
-    <ChakraButton colorScheme="blue" size="sm" {...props}>
+    <MUIButton variant={muiVariant} size="small" {...props}>
       {children}
-    </ChakraButton>
+    </MUIButton>
   );
 }

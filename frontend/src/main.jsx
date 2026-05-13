@@ -1,16 +1,26 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ChakraProvider } from '@chakra-ui/react'
+import { ThemeProvider, createTheme, CssBaseline } from '@mui/material'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import './index.css'
 import App from './App.jsx'
 
+const theme = createTheme({
+  palette: {
+    mode: 'dark',
+  },
+  typography: {
+    fontFamily: 'var(--font-primary)'
+  }
+})
+
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
 const appTree = (
-  <ChakraProvider>
+  <ThemeProvider theme={theme}>
+    <CssBaseline />
     <App googleClientConfigured={Boolean(googleClientId)} />
-  </ChakraProvider>
+  </ThemeProvider>
 )
 
 createRoot(document.getElementById('root')).render(

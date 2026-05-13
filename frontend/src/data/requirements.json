@@ -1,0 +1,98 @@
+[
+  {
+    "id": "BRD-1",
+    "title": "Non-Executing Advisory Delivery",
+    "category": "Core Strategy",
+    "status": "Pending",
+    "description": "Decouple analytical insights from market execution. Provide insights on non-executing basis.",
+    "files": []
+  },
+  {
+    "id": "BRD-2.1",
+    "title": "Beginners Profile Guardrails",
+    "category": "Risk Profiling",
+    "status": "Pending",
+    "description": "Restricted to broad-market equity mutual funds, liquid ETFs, top-tier large-cap. Quarterly rebalancing.",
+    "files": []
+  },
+  {
+    "id": "BRD-2.2",
+    "title": "Retail Profile Guardrails",
+    "category": "Risk Profiling",
+    "status": "Pending",
+    "description": "Balanced access. Strict single-stock limits (max 10%). Weekly/bi-weekly rebalancing.",
+    "files": []
+  },
+  {
+    "id": "BRD-2.3",
+    "title": "HNI Profile Guardrails",
+    "category": "Risk Profiling",
+    "status": "Pending",
+    "description": "Full multi-asset access. Higher position concentration. Real-time/daily rebalancing.",
+    "files": []
+  },
+  {
+    "id": "BRD-3.1",
+    "title": "Price Momentum Logs",
+    "category": "AI Core Inputs",
+    "status": "Pending",
+    "description": "Track structural asset momentum, historical price patterns, volatility trends.",
+    "files": []
+  },
+  {
+    "id": "BRD-3.2",
+    "title": "Dividend Structures",
+    "category": "AI Core Inputs",
+    "status": "Pending",
+    "description": "Analyze historical corporate dividend distribution growth and ex-dividend dates.",
+    "files": []
+  },
+  {
+    "id": "BRD-3.3",
+    "title": "Shareholding Patterns",
+    "category": "AI Core Inputs",
+    "status": "Pending",
+    "description": "Evaluate quarterly exchange disclosures to monitor institutional capital movements.",
+    "files": []
+  },
+  {
+    "id": "BRD-3.4",
+    "title": "Macro Cyclicals",
+    "category": "AI Core Inputs",
+    "status": "Pending",
+    "description": "Adjust baseline allocations according to broader economic environment.",
+    "files": []
+  },
+  {
+    "id": "BRD-3.5",
+    "title": "Live News Feeds",
+    "category": "AI Core Inputs",
+    "status": "Pending",
+    "description": "Aggregate live financial newswires, earnings calls to calculate sentiment signals.",
+    "files": []
+  },
+  {
+    "id": "BRD-4.1",
+    "title": "Phase 1: Indian Equities",
+    "category": "Asset Roadmap",
+    "status": "Pending",
+    "description": "Direct equities listed on NSE and BSE.",
+    "files": []
+  },
+  {
+    "id": "BRD-5",
+    "title": "Friction & Tax Leakage Layer",
+    "category": "Tax & Fees",
+    "status": "Pending",
+    "description": "Holding period verification, STCG/LTCG optimization, mutual fund exit loads, HNI surcharges.",
+    "files": []
+  },
+  {
+    "id": "BRD-6",
+    "title": "Explainable AI (XAI)",
+    "category": "User Experience",
+    "status": "Pending",
+    "description": "User Rationale Panel translating deep-learning assessments into clear market drivers.",
+    "files": []
+  }
+]

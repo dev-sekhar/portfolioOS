@@ -23,11 +23,13 @@ import { RUNTIME_SETTINGS } from "./config/runtimeSettings";
 import BulkDeals from "./components/BulkDeals";
 import EodChart from "./components/EodChart";
 import ShadowStrategy from "./components/ShadowStrategy";
+import RequirementsDashboard from "./components/RequirementsDashboard";
 
 import Button from "./components/ui/Button";
 import Input from "./components/ui/Input";
 import Select from "./components/ui/Select";
 import DatePicker from "./components/ui/DatePicker";
+import TagInput from "./components/ui/TagInput";
 
 const RISK_TARGETS = {
   low: { core: 0.4, defensive: 0.3, global: 0.1, hedge: 0.1, cash: 0.1 },
@@ -59,7 +61,8 @@ export default function App({ googleClientConfigured = false }) {
     { id: "arbitrage", label: "Arbitrage" },
     { id: "bulkdeals", label: "Bulk Deals" },
     { id: "shadow", label: "Shadow Strategy" },
-    { id: "profile", label: "User Profile" }
+    { id: "profile", label: "User Profile" },
+    { id: "requirements", label: "Requirements" }
   ];
 
   const todayIso = new Date().toISOString();
@@ -89,10 +92,16 @@ export default function App({ googleClientConfigured = false }) {
     crash: 30,
   });
   const [activeSection, setActiveSection] = useState("dashboard");
+  const [activeProfileTab, setActiveProfileTab] = useState("general");
   const [arbitrageThreshold, setArbitrageThreshold] = useState(1);
   const defaultArbitrageAlertFrequencySec = Math.max(5, Math.round(RUNTIME_SETTINGS.arbitrage.refreshIntervalMs / 1000));
   const [arbitrageAlertFrequencySec, setArbitrageAlertFrequencySec] = useState(defaultArbitrageAlertFrequencySec);
   const [arbitrageWatchlist, setArbitrageWatchlist] = useState("");
+  const [shadowModerateLimit, setShadowModerateLimit] = useState(12);
+  const [shadowHighRiskLimit, setShadowHighRiskLimit] = useState(10);
+  const [shadowSignalThreshold, setShadowSignalThreshold] = useState(20);
+  const [shadowInvestorWatchlist, setShadowInvestorWatchlist] = useState("");
+  const [theme, setTheme] = useState("dark");
   const [arbitrage, setArbitrage] = useState(null);
   const [arbitrageLoading, setArbitrageLoading] = useState(false);
   const [arbitrageError, setArbitrageError] = useState("");
@@ -389,10 +398,24 @@ export default function App({ googleClientConfigured = false }) {
       return;
     }
 
-    let expiresAt = Number(localStorage.getItem(sessionStorageKey));
-    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    const forceLogout = () => {
+      googleLogout();
+      localStorage.removeItem(sessionStorageKey);
+      setAuthUser(null);
+      setSessionRemainingMs(0);
+    };
+
+    const rawExpires = localStorage.getItem(sessionStorageKey);
+    let expiresAt;
+    if (rawExpires === null) {
       expiresAt = Date.now() + sessionTimeoutMs;
       localStorage.setItem(sessionStorageKey, String(expiresAt));
+    } else {
+      expiresAt = Number(rawExpires);
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+        forceLogout();
+        return;
+      }
     }
 
     const refreshSession = () => {
@@ -404,13 +427,6 @@ export default function App({ googleClientConfigured = false }) {
       expiresAt = now + sessionTimeoutMs;
       localStorage.setItem(sessionStorageKey, String(expiresAt));
       setSessionRemainingMs(sessionTimeoutMs);
-    };
-
-    const forceLogout = () => {
-      googleLogout();
-      localStorage.removeItem(sessionStorageKey);
-      setAuthUser(null);
-      setSessionRemainingMs(0);
     };
 
     const tick = () => {
@@ -458,10 +474,15 @@ export default function App({ googleClientConfigured = false }) {
     if (!normalizedOwnerEmail) return;
     localStorage.setItem(arbitrageWatchlistStorageKey, arbitrageWatchlist);
     const timer = setTimeout(() => {
-      updateSettings(normalizedOwnerEmail, { arbitrage_watchlist: arbitrageWatchlist }).catch(console.error);
+      updateSettings(normalizedOwnerEmail, { 
+        arbitrage_watchlist: arbitrageWatchlist,
+        shadow_moderate_limit: shadowModerateLimit,
+        shadow_high_risk_limit: shadowHighRiskLimit,
+        shadow_signal_threshold: shadowSignalThreshold
+      }).catch(console.error);
     }, 1000);
     return () => clearTimeout(timer);
-  }, [arbitrageWatchlistStorageKey, arbitrageWatchlist, normalizedOwnerEmail]);
+  }, [arbitrageWatchlistStorageKey, arbitrageWatchlist, shadowModerateLimit, shadowHighRiskLimit, shadowSignalThreshold, normalizedOwnerEmail]);
 
   useEffect(() => {
     localStorage.setItem(arbitrageFrequencyStorageKey, String(arbitrageAlertFrequencySec));
@@ -492,10 +513,27 @@ export default function App({ googleClientConfigured = false }) {
     const loadUserSettings = async () => {
       try {
         const res = await getSettings(normalizedOwnerEmail);
-        if (res.data && typeof res.data.arbitrage_watchlist === "string" && res.data.arbitrage_watchlist !== "") {
-          setArbitrageWatchlist(res.data.arbitrage_watchlist);
-        } else {
-          setArbitrageWatchlist(localStorage.getItem(arbitrageWatchlistStorageKey) || "");
+        if (res.data) {
+          if (typeof res.data.arbitrage_watchlist === "string" && res.data.arbitrage_watchlist !== "") {
+            setArbitrageWatchlist(res.data.arbitrage_watchlist);
+          } else {
+            setArbitrageWatchlist(localStorage.getItem(arbitrageWatchlistStorageKey) || "");
+          }
+          if (res.data.shadow_moderate_limit !== undefined) {
+            setShadowModerateLimit(res.data.shadow_moderate_limit);
+          }
+          if (res.data.shadow_high_risk_limit !== undefined) {
+            setShadowHighRiskLimit(res.data.shadow_high_risk_limit);
+          }
+          if (res.data.shadow_signal_threshold !== undefined) {
+            setShadowSignalThreshold(res.data.shadow_signal_threshold);
+          }
+          if (res.data.shadow_investor_watchlist !== undefined) {
+            setShadowInvestorWatchlist(res.data.shadow_investor_watchlist);
+          }
+          if (res.data.theme !== undefined) {
+            setTheme(res.data.theme);
+          }
         }
       } catch (err) {
         setArbitrageWatchlist(localStorage.getItem(arbitrageWatchlistStorageKey) || "");
@@ -526,6 +564,10 @@ export default function App({ googleClientConfigured = false }) {
       clearTimeout(symbolDebounceRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     const unlockAudio = () => {
@@ -700,6 +742,12 @@ export default function App({ googleClientConfigured = false }) {
     if (symbol.includes(".")) {
       queuePriceFetch(symbol, form.market);
     }
+  };
+
+  const handleCopyStock = (symbol) => {
+    handleSymbolChange(symbol);
+    goToSection("dashboard");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const chooseSymbolCandidate = (candidate) => {
@@ -1047,9 +1095,30 @@ export default function App({ googleClientConfigured = false }) {
             </button>
           ))}
         </nav>
-        <button type="button" className="side-nav-item side-nav-logout" onClick={handleLogout}>
-          Sign Out
-        </button>
+        
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px' }}>
+            <div 
+              className={`theme-toggle ${theme === 'dark' ? 'dark' : ''}`}
+              onClick={() => {
+                const newTheme = theme === "dark" ? "light" : "dark";
+                setTheme(newTheme);
+                updateSettings(normalizedOwnerEmail, { theme: newTheme });
+              }}
+            >
+              <div className="theme-toggle-knob">
+                {theme === 'light' ? '☾' : '☼'}
+              </div>
+            </div>
+            <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500 }}>
+              {theme === 'light' ? 'Light Mode' : 'Dark Mode'}
+            </span>
+          </div>
+
+          <button type="button" className="side-nav-item side-nav-logout" onClick={handleLogout}>
+            Sign Out
+          </button>
+        </div>
       </aside>
 
       <main className="app-shell">
@@ -1193,8 +1262,12 @@ export default function App({ googleClientConfigured = false }) {
                   <option value="cash">cash</option>
                 </Select>
 
-                <Button onClick={handleAdd}>Add</Button>
-                <Button onClick={handleAnalyze}>{analyzeLoading ? "Analyzing..." : "Analyze Portfolio"}</Button>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '16px', width: '100%' }}>
+                <Button onClick={handleAdd} style={{ flex: 1, height: '40px' }}>Add</Button>
+                <Button onClick={handleAnalyze} style={{ flex: 1, height: '40px' }}>
+                  {analyzeLoading ? "Analyzing..." : "Analyze Portfolio"}
+                </Button>
+              </div>
               </div>
               {addError && <p className="arb-error">{addError}</p>}
             </Card>
@@ -1543,31 +1616,114 @@ export default function App({ googleClientConfigured = false }) {
 
         {activeSection === "shadow" && (
           <section id="shadow-section" className="app-section">
-            <ShadowStrategy />
+            <ShadowStrategy 
+                onCopyStock={handleCopyStock} 
+                moderateLimit={shadowModerateLimit} 
+                highRiskLimit={shadowHighRiskLimit}
+                signalThreshold={shadowSignalThreshold}
+                investorWatchlist={shadowInvestorWatchlist}
+                onAddInvestorToWatchlist={(investorName) => {
+                    const currentList = shadowInvestorWatchlist ? shadowInvestorWatchlist.split(',').map(s => s.trim()).filter(Boolean) : [];
+                    if (!currentList.includes(investorName)) {
+                        const newList = [...currentList, investorName].join(', ');
+                        setShadowInvestorWatchlist(newList);
+                        updateSettings(normalizedOwnerEmail, { shadow_investor_watchlist: newList });
+                    }
+                }}
+            />
           </section>
         )}
 
         {activeSection === "profile" && (
           <section id="profile-section" className="app-section">
             <Card title="User Profile" subtitle="Local settings and preferences">
-              <p>Name: {authUser?.name || "User"}</p>
-              <p>Portfolio created: {formattedPortfolioDate}</p>
-              <p>Preferred risk profile: {targetRisk}</p>
-              <label className="profile-setting-row">
-                <span>Arbitrage Alert Frequency</span>
-                <Select
-                  value={arbitrageAlertFrequencySec}
-                  onChange={(e) => setArbitrageAlertFrequencySec(Number(e.target.value))}
-                >
-                  <option value={10}>Every 10 seconds</option>
-                  <option value={15}>Every 15 seconds</option>
-                  <option value={20}>Every 20 seconds</option>
-                  <option value={30}>Every 30 seconds</option>
-                  <option value={45}>Every 45 seconds</option>
-                  <option value={60}>Every 60 seconds</option>
-                </Select>
-              </label>
-              <p className="card-note">This controls how often arbitrage alerts and spread snapshots are refreshed.</p>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px', flexWrap: 'wrap' }}>
+                <Button variant={activeProfileTab === "general" ? "primary" : "outline"} onClick={() => setActiveProfileTab("general")}>General Settings</Button>
+                <Button variant={activeProfileTab === "arbitrage" ? "primary" : "outline"} onClick={() => setActiveProfileTab("arbitrage")}>Arbitrage Settings</Button>
+                <Button variant={activeProfileTab === "shadow" ? "primary" : "outline"} onClick={() => setActiveProfileTab("shadow")}>Shadow Strategy Settings</Button>
+              </div>
+
+              {activeProfileTab === "general" && (
+                <div style={{ display: 'grid', gap: '16px' }}>
+                  <p>Name: {authUser?.name || "User"}</p>
+                  <p>Portfolio created: {formattedPortfolioDate}</p>
+                  <p>Preferred risk profile: {targetRisk}</p>
+                </div>
+              )}
+              
+              {activeProfileTab === "arbitrage" && (
+                <div style={{ display: 'grid', gap: '16px' }}>
+                  <label className="profile-setting-row">
+                    <span>Arbitrage Alert Frequency</span>
+                    <Select
+                      value={arbitrageAlertFrequencySec}
+                      onChange={(e) => setArbitrageAlertFrequencySec(Number(e.target.value))}
+                    >
+                      <option value={10}>Every 10 seconds</option>
+                      <option value={15}>Every 15 seconds</option>
+                      <option value={20}>Every 20 seconds</option>
+                      <option value={30}>Every 30 seconds</option>
+                      <option value={45}>Every 45 seconds</option>
+                      <option value={60}>Every 60 seconds</option>
+                    </Select>
+                  </label>
+                  <p className="card-note" style={{ marginTop: '-8px' }}>This controls how often arbitrage alerts and spread snapshots are refreshed.</p>
+                </div>
+              )}
+
+              {activeProfileTab === "shadow" && (
+                <div style={{ display: 'grid', gap: '16px' }}>
+                  <label className="profile-setting-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ width: '180px' }}>Moderate Limit</span>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={shadowModerateLimit}
+                      onChange={(e) => setShadowModerateLimit(Number(e.target.value))}
+                      style={{ width: "100px" }}
+                    />
+                  </label>
+                  
+                  <label className="profile-setting-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ width: '180px' }}>High Risk Limit</span>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={shadowHighRiskLimit}
+                      onChange={(e) => setShadowHighRiskLimit(Number(e.target.value))}
+                      style={{ width: "100px" }}
+                    />
+                  </label>
+
+                  <label className="profile-setting-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ width: '180px' }}>Signal Threshold (%)</span>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={shadowSignalThreshold}
+                      onChange={(e) => setShadowSignalThreshold(Number(e.target.value))}
+                      onBlur={(e) => updateSettings(normalizedOwnerEmail, { shadow_signal_threshold: Number(e.target.value) })}
+                      style={{ width: "100px" }}
+                    />
+                  </label>
+                  <p className="card-note" style={{ marginTop: '-8px' }}>Minimum investor signal strength (%) to include a stock when generating optimized weights.</p>
+                  
+                  <label className="profile-setting-row" style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <span style={{ width: '180px', marginTop: '12px' }}>Investor/Seller Watchlist</span>
+                    <TagInput
+                      value={shadowInvestorWatchlist}
+                      onChange={(newVal) => setShadowInvestorWatchlist(newVal)}
+                      onBlur={(newVal) => updateSettings(normalizedOwnerEmail, { shadow_investor_watchlist: newVal })}
+                      placeholder="e.g. Radhakishan Damani, press Enter"
+                      style={{ flex: 1, maxWidth: "500px" }}
+                    />
+                  </label>
+                  <p className="card-note" style={{ marginTop: '-8px' }}>Only track these specific investors/sellers when applying shadow strategy.</p>
+                </div>
+              )}
             </Card>
           </section>
         )}
@@ -1737,6 +1893,12 @@ export default function App({ googleClientConfigured = false }) {
               ))}
             </div>
           </div>
+        )}
+
+        {activeSection === "requirements" && (
+          <section id="requirements-section" className="app-section">
+            <RequirementsDashboard />
+          </section>
         )}
       </main>
     </div>

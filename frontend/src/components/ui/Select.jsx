@@ -1,32 +1,34 @@
-import { Select as ChakraSelect } from "@chakra-ui/react";
+import { Select as MUISelect } from "@mui/material";
 
-export default function Select({ children, ...props }) {
+export default function Select({ children, sx, ...props }) {
   return (
-    <ChakraSelect 
-      size="sm"
-      style={{
-        backgroundColor: 'var(--bg-surface)',
-        color: 'var(--text-primary)',
-        borderColor: 'var(--border-strong)',
-        background: 'var(--bg-surface)'
-      }}
+    <MUISelect 
+      size="small"
+      native={true}
       sx={{
-        background: 'var(--bg-surface) !important',
-        borderColor: 'var(--border-strong)',
-        color: 'var(--text-primary)',
-        minHeight: '38px',
-        _placeholder: { color: 'var(--text-tertiary)' },
-        _focus: { borderColor: 'var(--accent-base)', boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)' },
-        option: {
-          background: 'var(--bg-surface)',
-          color: 'var(--text-primary)',
-          _hover: { background: 'var(--bg-surface-hover)' },
-          _selected: { background: 'rgba(59, 130, 246, 0.3)', color: 'var(--text-primary)' }
-        }
+        color: 'var(--text-input)',
+        borderRadius: '8px',
+        minHeight: '40px',
+        fontSize: '0.9rem',
+        '& .MuiSelect-select': {
+          padding: '8px 12px',
+          background: 'var(--bg-input)',
+          borderRadius: '8px',
+        },
+        '& fieldset': {
+          borderColor: 'var(--border-strong) !important',
+        },
+        '&:hover fieldset': {
+          borderColor: 'var(--accent-base) !important',
+        },
+        '&.Mui-focused fieldset': {
+          borderColor: 'var(--accent-base) !important',
+        },
+        ...sx
       }}
       {...props}
     >
       {children}
-    </ChakraSelect>
+    </MUISelect>
   );
 }
